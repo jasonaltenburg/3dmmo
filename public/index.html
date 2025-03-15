@@ -42,6 +42,198 @@
       border-radius: 5px;
       font-size: 14px;
     }
+    #gold-display {
+      color: gold;
+      font-weight: bold;
+    }
+    #inventory-button {
+      position: absolute;
+      bottom: 170px;
+      left: 10px;
+      background-color: rgba(0, 0, 0, 0.7);
+      color: white;
+      padding: 5px 10px;
+      border-radius: 5px;
+      font-size: 14px;
+      cursor: pointer;
+      border: 1px solid #555;
+      pointer-events: auto;
+    }
+    #inventory-panel {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 400px;
+      background-color: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 20px;
+      border-radius: 5px;
+      font-size: 14px;
+      display: none;
+      z-index: 1000;
+      pointer-events: auto;
+    }
+    #inventory-tabs {
+      display: flex;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #555;
+    }
+    .inventory-tab {
+      padding: 8px 15px;
+      margin-right: 5px;
+      cursor: pointer;
+      border-top-left-radius: 5px;
+      border-top-right-radius: 5px;
+    }
+    .inventory-tab.active {
+      background-color: rgba(255, 255, 255, 0.2);
+      border: 1px solid #555;
+      border-bottom: none;
+    }
+    .inventory-content {
+      display: none;
+      height: 320px;
+      overflow-y: auto;
+    }
+    .inventory-content.active {
+      display: block;
+    }
+    .inventory-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      margin-bottom: 5px;
+      border-radius: 3px;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    .item-common {
+      border-left: 3px solid white;
+    }
+    .item-rare {
+      border-left: 3px solid #4444ff;
+    }
+    .item-epic {
+      border-left: 3px solid #aa44ff;
+    }
+    .item-name {
+      flex: 2;
+    }
+    .item-stats {
+      flex: 2;
+      color: #aaa;
+    }
+    .item-action {
+      flex: 1;
+      text-align: right;
+    }
+    .item-action button {
+      padding: 3px 8px;
+      background-color: #555;
+      color: white;
+      border: none;
+      border-radius: 3px;
+      cursor: pointer;
+    }
+    .item-action button:hover {
+      background-color: #777;
+    }
+    #shop-panel {
+      position: absolute;
+      left: 50%;
+      top: 50%;
+      transform: translate(-50%, -50%);
+      width: 600px;
+      height: 400px;
+      background-color: rgba(0, 0, 0, 0.85);
+      color: white;
+      padding: 20px;
+      border-radius: 5px;
+      font-size: 14px;
+      display: none;
+      z-index: 1000;
+      pointer-events: auto;
+    }
+    #shop-tabs {
+      display: flex;
+      margin-bottom: 15px;
+      border-bottom: 1px solid #555;
+    }
+    .shop-tab {
+      padding: 8px 15px;
+      margin-right: 5px;
+      cursor: pointer;
+      border-top-left-radius: 5px;
+      border-top-right-radius: 5px;
+    }
+    .shop-tab.active {
+      background-color: rgba(255, 255, 255, 0.2);
+      border: 1px solid #555;
+      border-bottom: none;
+    }
+    .shop-content {
+      display: none;
+      height: 320px;
+      overflow-y: auto;
+    }
+    .shop-content.active {
+      display: block;
+    }
+    .shop-item {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      padding: 8px;
+      margin-bottom: 5px;
+      border-radius: 3px;
+      background-color: rgba(255, 255, 255, 0.1);
+    }
+    .shop-item-price {
+      color: gold;
+      font-weight: bold;
+    }
+    #buff-icons {
+      position: absolute;
+      top: 170px;
+      left: 10px;
+      display: flex;
+      flex-direction: column;
+      gap: 5px;
+    }
+    .buff-icon {
+      width: 40px;
+      height: 40px;
+      background-color: rgba(0, 0, 0, 0.7);
+      border-radius: 5px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      font-size: 10px;
+      position: relative;
+    }
+    .buff-icon img {
+      width: 24px;
+      height: 24px;
+    }
+    .buff-timer {
+      position: absolute;
+      bottom: 2px;
+      font-size: 9px;
+    }
+    .glow-effect {
+      animation: glow 2s infinite alternate;
+    }
+    @keyframes glow {
+      from {
+        box-shadow: 0 0 5px #fff, 0 0 10px #fff, 0 0 15px #e60073, 0 0 20px #e60073;
+      }
+      to {
+        box-shadow: 0 0 10px #fff, 0 0 15px #ff4da6, 0 0 20px #ff4da6, 0 0 25px #ff4da6;
+      }
+    }
     #region-info {
       position: absolute;
       top: 10px;
@@ -118,6 +310,13 @@
       <div class="xp-bar-container">
         <div class="xp-bar" id="xp-bar"></div>
       </div>
+      <div>Gold: <span id="gold-display">0</span></div>
+    </div>
+    
+    <button id="inventory-button">Inventory (I)</button>
+    
+    <div id="buff-icons">
+      <!-- Buff icons will be added here dynamically -->
     </div>
     
     <div id="region-info" style="opacity: 0;">
@@ -130,6 +329,49 @@
     </div>
     
     <div id="combat-log"></div>
+    
+    <!-- Inventory Panel -->
+    <div id="inventory-panel">
+      <h2>Inventory</h2>
+      <div id="inventory-tabs">
+        <div class="inventory-tab active" data-tab="equipment">Equipment</div>
+        <div class="inventory-tab" data-tab="consumables">Consumables</div>
+      </div>
+      
+      <div id="equipment-tab" class="inventory-content active">
+        <!-- Equipment items will be added here -->
+      </div>
+      
+      <div id="consumables-tab" class="inventory-content">
+        <!-- Consumable items will be added here -->
+      </div>
+      
+      <button id="close-inventory" style="position: absolute; top: 10px; right: 10px;">X</button>
+    </div>
+    
+    <!-- Shop Panel -->
+    <div id="shop-panel">
+      <h2 id="shop-title">Shop</h2>
+      <div id="shop-tabs">
+        <div class="shop-tab active" data-tab="weapons">Weapons</div>
+        <div class="shop-tab" data-tab="armor">Armor</div>
+        <div class="shop-tab" data-tab="consumables">Consumables</div>
+      </div>
+      
+      <div id="weapons-tab" class="shop-content active">
+        <!-- Weapon items will be added here -->
+      </div>
+      
+      <div id="armor-tab" class="shop-content">
+        <!-- Armor items will be added here -->
+      </div>
+      
+      <div id="consumables-tab" class="shop-content">
+        <!-- Consumable items will be added here -->
+      </div>
+      
+      <button id="close-shop" style="position: absolute; top: 10px; right: 10px;">X</button>
+    </div>
   </div>
   
   <!-- Import external libraries -->

@@ -14,6 +14,16 @@ export class Player {
     this.defense = 5;
     this.experience = 0;
     this.experienceToNextLevel = 100;
+    this.gold = 0;
+    
+    // Inventory
+    this.inventory = {
+      equipment: [],
+      consumables: []
+    };
+    
+    // Active buffs
+    this.buffs = {};
     
     // Create player model
     this.model = this.createModel();
@@ -340,6 +350,118 @@ export class Player {
     };
   }
   
+  // Gold and inventory methods
+  addGold(amount) {
+    this.gold += amount;
+    return this.gold;
+  }
+  
+  spendGold(amount) {
+    if (this.gold >= amount) {
+      this.gold -= amount;
+      return true;
+    }
+    return false;
+  }
+  
+  addItem(item) {
+    if (item.type === 'equipment') {
+      this.inventory.equipment.push(item);
+    } else if (item.type === 'consumable') {
+      this.inventory.consumables.push(item);
+    }
+  }
+  
+  removeItem(itemId, type) {
+    if (type === 'equipment') {
+      this.inventory.equipment = this.inventory.equipment.filter(item => item.id !== itemId);
+    } else if (type === 'consumable') {
+      this.inventory.consumables = this.inventory.consumables.filter(item => item.id !== itemId);
+    }
+  }
+  
+  useConsumable(itemId) {
+    const itemIndex = this.inventory.consumables.findIndex(item => item.id === itemId);
+    if (itemIndex === -1) return false;
+    
+    const item = this.inventory.consumables[itemIndex];
+    
+    // Apply consumable effects
+    if (item.effects) {
+      if (item.effects.health) {
+        this.health = Math.min(this.maxHealth, this.health + item.effects.health);
+        this.updateHealthBar();
+      }
+      
+      if (item.effects.buff) {
+        this.addBuff(item.effects.buff.id, item.effects.buff.duration, item.effects.buff.stats);
+      }
+    }
+    
+    // Remove consumable after use (if it's not reusable)
+    if (!item.reusable) {
+      this.inventory.consumables.splice(itemIndex, 1);
+    }
+    
+    return true;
+  }
+  
+  // Buff system
+  addBuff(buffId, duration, stats) {
+    // Apply buff stats
+    if (stats.attackDamage) {
+      this.attackDamage += stats.attackDamage;
+    }
+    if (stats.defense) {
+      this.defense += stats.defense;
+    }
+    if (stats.maxHealth) {
+      const healthPercent = this.health / this.maxHealth;
+      this.maxHealth += stats.maxHealth;
+      this.health = Math.round(this.maxHealth * healthPercent);
+      this.updateHealthBar();
+    }
+    
+    // Store buff with expiration time
+    this.buffs[buffId] = {
+      id: buffId,
+      stats: stats,
+      expiresAt: Date.now() + duration
+    };
+    
+    // Set timeout to remove buff
+    setTimeout(() => this.removeBuff(buffId), duration);
+    
+    // Return buff info for UI
+    return {
+      id: buffId,
+      duration: duration,
+      stats: stats
+    };
+  }
+  
+  removeBuff(buffId) {
+    if (!this.buffs[buffId]) return;
+    
+    // Remove buff stats
+    const stats = this.buffs[buffId].stats;
+    if (stats.attackDamage) {
+      this.attackDamage -= stats.attackDamage;
+    }
+    if (stats.defense) {
+      this.defense -= stats.defense;
+    }
+    if (stats.maxHealth) {
+      const healthPercent = this.health / this.maxHealth;
+      this.maxHealth -= stats.maxHealth;
+      this.health = Math.round(this.maxHealth * healthPercent);
+      this.updateHealthBar();
+    }
+    
+    // Remove buff from active buffs
+    delete this.buffs[buffId];
+  }
+  
   cleanup() {
     if (this.model) {
       this.scene.remove(this.model);
@@ -347,6 +469,11 @@ export class Player {
     
     if (this.healthBarContainer && this.healthBarContainer.parentNode) {
       this.healthBarContainer.parentNode.removeChild(this.healthBarContainer);
+    }
+    
+    // Clear all buff timeouts
+    for (const buffId in this.buffs) {
+      this.removeBuff(buffId);
     }
   }
 }

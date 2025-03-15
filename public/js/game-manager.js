@@ -59,6 +59,12 @@ export class GameManager {
   setupCamera() {
     this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
     this.camera.position.set(0, 5, 10);
+    
+    // Initialize camera mode (first-person or third-person)
+    this.cameraMode = 'third-person';
+    this.thirdPersonDistance = 7;
+    this.thirdPersonHeight = 3;
+    this.cameraCollision = true;
   }
   
   setupLighting() {
@@ -91,11 +97,21 @@ export class GameManager {
   setupControls() {
     this.controls = new OrbitControls(this.camera, this.renderer.domElement);
     this.controls.maxPolarAngle = Math.PI / 2 - 0.1; // Prevent going below ground
-    this.controls.minDistance = 5;
+    this.controls.minDistance = 2;
     this.controls.maxDistance = 15;
     this.controls.enableDamping = true;
     this.controls.dampingFactor = 0.1;
     this.controls.rotateSpeed = 0.5;
+    
+    // Configure for third-person by default
+    if (this.cameraMode === 'third-person') {
+      this.controls.enableZoom = true;  // Allow zooming in third-person
+      this.controls.minDistance = 3;    // Minimum zoom distance
+      this.controls.maxDistance = 10;   // Maximum zoom distance
+    } else {
+      // First-person configuration
+      this.controls.enableZoom = false; // Disable zooming in first-person
+    }
     
     // Set initial position
     this.controls.target.set(0, 1, 0);
@@ -112,6 +128,21 @@ export class GameManager {
       // Attack on space
       if (e.code === 'Space' && !this.chatActive) {
         this.playerAttack();
+      }
+      
+      // Toggle camera mode with C key
+      if (e.code === 'KeyC' && !this.chatActive) {
+        this.toggleCameraMode();
+      }
+      
+      // Open inventory with I key
+      if (e.code === 'KeyI' && !this.chatActive) {
+        this.ui.toggleInventory(this.player.inventory, this.player.gold);
+      }
+      
+      // Open shop with B key when in town
+      if (e.code === 'KeyB' && !this.chatActive && this.activeRegion && this.activeRegion.name === 'Town') {
+        this.ui.toggleShop(this.player.gold);
       }
     });
     
@@ -146,6 +177,72 @@ export class GameManager {
       } else {
         this.socket.emit('chat', { message });
       }
+    });
+    
+    // UI events
+    document.addEventListener('buy-item', (e) => {
+      const item = e.detail.item;
+      if (this.player.spendGold(item.price)) {
+        this.player.addItem(item.item);
+        this.ui.updatePlayerStats(this.player); // Update gold display
+        this.ui.addCombatMessage(`Purchased ${item.item.name} for ${item.price} gold.`);
+      } else {
+        this.ui.addCombatMessage('Not enough gold to purchase this item!', 'error');
+      }
+    });
+    
+    document.addEventListener('use-item', (e) => {
+      const itemId = e.detail.itemId;
+      const result = this.player.useConsumable(itemId);
+      
+      if (result) {
+        this.ui.updatePlayerStats(this.player);
+        this.ui.updateInventory(this.player.inventory);
+      }
+    });
+    
+    document.addEventListener('equip-item', (e) => {
+      // Equipment system would be implemented here
+      // For now just add a message
+      this.ui.addCombatMessage(`Equipped ${e.detail.itemName}.`);
+    });
+    
+    document.addEventListener('sell-item', (e) => {
+      const itemId = e.detail.itemId;
+      const type = e.detail.type;
+      const price = e.detail.price;
+      
+      // Remove item from inventory
+      this.player.removeItem(itemId, type);
+      
+      // Add gold
+      this.player.addGold(price);
+      
+      // Update UI
+      this.ui.updatePlayerStats(this.player);
+      this.ui.updateInventory(this.player.inventory);
+      this.ui.addCombatMessage(`Sold item for ${price} gold.`);
+    });
+    
+    document.addEventListener('drink-beer', () => {
+      // Apply beer buff
+      const buffId = 'beer_buff';
+      const duration = 60000; // 60 seconds
+      const stats = {
+        attackDamage: 5,
+        defense: 3
+      };
+      
+      // Apply buff
+      const buffInfo = this.player.addBuff(buffId, duration, stats);
+      
+      // Update UI
+      this.ui.updatePlayerStats(this.player);
+      this.ui.addStatusEffect(buffId, '🍺', duration, 'Beer: +5 Attack, +3 Defense');
+      this.ui.addCombatMessage('You feel stronger after drinking the beer! (+5 Attack, +3 Defense for 60 seconds)');
+      
+      // Spend gold
+      this.player.spendGold(5);
     });
     
     // Socket events
@@ -395,7 +492,7 @@ export class GameManager {
         const dot = playerForward.dot(directionToEnemy);
         if (dot > 0.5) { // Enemy is in front of player (within ~60 degree cone)
           // Apply damage to enemy
-          const isDead = enemy.takeDamage(attackData.damage);
+          const result = enemy.takeDamage(attackData.damage);
           
           // Show damage number
           this.ui.showDamageNumber(
@@ -408,7 +505,7 @@ export class GameManager {
           // Add combat message
           this.ui.addCombatMessage(`You hit the ${enemy.type} for ${attackData.damage} damage.`);
           
-          if (isDead) {
+          if (result.dead) {
             // Calculate XP based on enemy level
             const xpGained = enemy.level * 10;
             
@@ -425,6 +522,41 @@ export class GameManager {
             
             // Add combat message
             this.ui.addCombatMessage(`You defeated the ${enemy.type} and gained ${xpGained} XP.`);
+            
+            // Process drops
+            if (result.drops) {
+              // Add gold
+              if (result.drops.gold > 0) {
+                this.player.addGold(result.drops.gold);
+                
+                // Show gold gain
+                this.ui.showDamageNumber(
+                  enemy.model.position.clone().add(new THREE.Vector3(0, 2.3, 0)),
+                  result.drops.gold,
+                  'gold',
+                  this.camera
+                );
+                
+                this.ui.addCombatMessage(`Found ${result.drops.gold} gold.`);
+              }
+              
+              // Add items to inventory
+              if (result.drops.items && result.drops.items.length > 0) {
+                result.drops.items.forEach(item => {
+                  this.player.addItem(item);
+                  
+                  // Add item message with rarity color
+                  let rarityColor = 'white';
+                  if (item.rarity === 'rare') rarityColor = '#4444ff';
+                  if (item.rarity === 'epic') rarityColor = '#aa44ff';
+                  
+                  this.ui.addCombatMessage(`Found <span style="color:${rarityColor}">${item.name}</span>!`);
+                });
+                
+                // Update inventory UI if open
+                this.ui.updateInventory(this.player.inventory);
+              }
+            }
             
             // Check for level up
             if (xpData.currentXp === 0) {
@@ -598,9 +730,8 @@ export class GameManager {
         this.player.model.position.add(direction);
         this.player.model.rotation.y = rotation;
         
-        // Update camera target
-        this.controls.target.copy(this.player.model.position);
-        this.controls.target.y = this.player.model.position.y + 1;
+        // Update camera based on camera mode
+        this.updateCamera();
         
         // Send updated position to server
         this.socket.emit('playerMovement', {
@@ -612,6 +743,9 @@ export class GameManager {
         
         // Check if we entered a new region
         this.checkRegion();
+      } else {
+        // Even if not moving, update camera (for camera follow)
+        this.updateCamera();
       }
       
       // Update player animations and status
@@ -631,6 +765,96 @@ export class GameManager {
     
     // Render scene
     this.renderer.render(this.scene, this.camera);
+  }
+  
+  updateCamera() {
+    if (!this.player) return;
+    
+    if (this.cameraMode === 'third-person') {
+      // In third-person, the camera follows the player from behind
+      
+      // Calculate ideal camera position based on player's rotation
+      const idealOffset = new THREE.Vector3();
+      const rotation = this.player.model.rotation.y;
+      
+      // Position camera behind player
+      idealOffset.x = Math.sin(rotation) * this.thirdPersonDistance;
+      idealOffset.y = this.thirdPersonHeight;
+      idealOffset.z = Math.cos(rotation) * this.thirdPersonDistance;
+      
+      // Apply the offset to get desired camera position
+      const idealPosition = new THREE.Vector3();
+      idealPosition.copy(this.player.model.position).add(idealOffset);
+      
+      // Handle camera collision with environment (if enabled)
+      if (this.cameraCollision) {
+        // Set up raycaster from player to ideal camera position
+        const raycaster = new THREE.Raycaster();
+        raycaster.set(this.player.model.position, idealOffset.clone().normalize());
+        
+        // Check for collisions with scene objects (except player)
+        const intersects = raycaster.intersectObjects(this.scene.children, true);
+        
+        // Filter out player model from results
+        const validIntersects = intersects.filter(intersect => {
+          let obj = intersect.object;
+          let isPlayerPart = false;
+          
+          // Check if object is part of player model
+          while (obj.parent) {
+            if (obj === this.player.model) {
+              isPlayerPart = true;
+              break;
+            }
+            obj = obj.parent;
+          }
+          
+          return !isPlayerPart;
+        });
+        
+        // If collision detected, adjust camera distance
+        if (validIntersects.length > 0 && validIntersects[0].distance < this.thirdPersonDistance) {
+          // Place camera at collision point minus a small offset
+          const collisionDistance = validIntersects[0].distance * 0.9; // 90% of distance to collision
+          const adjustedOffset = idealOffset.clone().normalize().multiplyScalar(collisionDistance);
+          idealPosition.copy(this.player.model.position).add(adjustedOffset);
+        }
+      }
+      
+      // Smoothly interpolate current camera position to ideal position
+      this.camera.position.lerp(idealPosition, 0.1);
+      
+      // Set controls target to player's head height
+      this.controls.target.copy(this.player.model.position);
+      this.controls.target.y = this.player.model.position.y + 1.5;
+    } else {
+      // First-person mode - camera is at player's eye level
+      const headPosition = this.player.model.position.clone();
+      headPosition.y += 1.7; // Eye level
+      
+      this.camera.position.copy(headPosition);
+      
+      // Set look target in front of player
+      const lookDirection = new THREE.Vector3(0, 0, -1).applyQuaternion(this.player.model.quaternion);
+      this.controls.target.copy(headPosition).add(lookDirection);
+    }
+    
+    // Update orbit controls
+    this.controls.update();
+  }
+  
+  toggleCameraMode() {
+    if (this.cameraMode === 'third-person') {
+      this.cameraMode = 'first-person';
+      this.controls.enableZoom = false;
+      this.ui.addCombatMessage('Switched to first-person camera mode');
+    } else {
+      this.cameraMode = 'third-person';
+      this.controls.enableZoom = true;
+      this.controls.minDistance = 3;
+      this.controls.maxDistance = 10;
+      this.ui.addCombatMessage('Switched to third-person camera mode');
+    }
   }
   
   cleanup() {

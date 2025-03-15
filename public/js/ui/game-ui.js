@@ -577,13 +577,20 @@ export class GameUI {
     this.expBar.style.width = xpPercent + '%';
     this.expText.textContent = `Level ${player.level} - ${player.experience} / ${player.experienceToNextLevel} XP`;
     
+    // Update gold display
+    const goldDisplay = document.getElementById('gold-display');
+    if (goldDisplay) {
+      goldDisplay.textContent = player.gold;
+    }
+    
     // Store player stats
     this.playerStats = {
       level: player.level,
       health: player.health,
       maxHealth: player.maxHealth,
       experience: player.experience,
-      experienceToNextLevel: player.experienceToNextLevel
+      experienceToNextLevel: player.experienceToNextLevel,
+      gold: player.gold
     };
   }
   
@@ -640,6 +647,9 @@ export class GameUI {
     } else if (type === 'xp') {
       damageNumber.textContent = `+${amount} XP`;
       damageNumber.style.color = '#9933ff';
+    } else if (type === 'gold') {
+      damageNumber.textContent = `+${amount} gold`;
+      damageNumber.style.color = '#ffcc00';
     }
     
     // Convert 3D position to screen position
@@ -676,8 +686,550 @@ export class GameUI {
     };
   }
   
+  toggleInventory(inventory, gold) {
+    const inventoryPanel = document.getElementById('inventory-panel');
+    
+    if (inventoryPanel.style.display === 'block') {
+      inventoryPanel.style.display = 'none';
+    } else {
+      // Update inventory contents before showing
+      this.updateInventory(inventory);
+      
+      // Update gold display
+      const goldDisplay = document.getElementById('gold-display');
+      if (goldDisplay) {
+        goldDisplay.textContent = gold;
+      }
+      
+      // Show inventory
+      inventoryPanel.style.display = 'block';
+      
+      // Set up tab switching
+      const tabs = inventoryPanel.querySelectorAll('.inventory-tab');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          // Deactivate all tabs
+          tabs.forEach(t => t.classList.remove('active'));
+          
+          // Activate clicked tab
+          tab.classList.add('active');
+          
+          // Hide all content sections
+          const contentSections = inventoryPanel.querySelectorAll('.inventory-content');
+          contentSections.forEach(section => section.classList.remove('active'));
+          
+          // Show corresponding content
+          const tabName = tab.getAttribute('data-tab');
+          document.getElementById(`${tabName}-tab`).classList.add('active');
+        });
+      });
+      
+      // Set up close button
+      const closeButton = document.getElementById('close-inventory');
+      closeButton.addEventListener('click', () => {
+        inventoryPanel.style.display = 'none';
+      });
+    }
+  }
+  
+  updateInventory(inventory) {
+    // Update equipment tab
+    const equipmentTab = document.getElementById('equipment-tab');
+    equipmentTab.innerHTML = '';
+    
+    if (inventory.equipment.length === 0) {
+      equipmentTab.innerHTML = '<div class="empty-message">No equipment items in inventory</div>';
+    } else {
+      inventory.equipment.forEach(item => {
+        const itemElement = document.createElement('div');
+        itemElement.className = `inventory-item item-${item.rarity}`;
+        
+        const statsText = Object.entries(item.stats)
+          .map(([stat, value]) => `${this.formatStatName(stat)}: +${value}`)
+          .join(', ');
+        
+        itemElement.innerHTML = `
+          <div class="item-name">${item.name} (Level ${item.level})</div>
+          <div class="item-stats">${statsText}</div>
+          <div class="item-action">
+            <button class="equip-btn" data-item-id="${item.id}" data-item-name="${item.name}">Equip</button>
+            <button class="sell-btn" data-item-id="${item.id}" data-type="equipment" data-price="${this.calculateSellPrice(item)}">Sell (${this.calculateSellPrice(item)}g)</button>
+          </div>
+        `;
+        
+        equipmentTab.appendChild(itemElement);
+        
+        // Add event listeners
+        const equipBtn = itemElement.querySelector('.equip-btn');
+        equipBtn.addEventListener('click', () => {
+          document.dispatchEvent(new CustomEvent('equip-item', {
+            detail: {
+              itemId: item.id,
+              itemName: item.name
+            }
+          }));
+        });
+        
+        const sellBtn = itemElement.querySelector('.sell-btn');
+        sellBtn.addEventListener('click', () => {
+          document.dispatchEvent(new CustomEvent('sell-item', {
+            detail: {
+              itemId: item.id,
+              type: 'equipment',
+              price: this.calculateSellPrice(item)
+            }
+          }));
+        });
+      });
+    }
+    
+    // Update consumables tab
+    const consumablesTab = document.getElementById('consumables-tab');
+    consumablesTab.innerHTML = '';
+    
+    if (inventory.consumables.length === 0) {
+      consumablesTab.innerHTML = '<div class="empty-message">No consumable items in inventory</div>';
+    } else {
+      inventory.consumables.forEach(item => {
+        const itemElement = document.createElement('div');
+        itemElement.className = `inventory-item item-${item.rarity}`;
+        
+        let effectsText = '';
+        if (item.effects) {
+          if (item.effects.health) {
+            effectsText += `Restores ${item.effects.health} health. `;
+          }
+          if (item.effects.buff) {
+            const buff = item.effects.buff;
+            effectsText += 'Grants buff: ';
+            if (buff.stats.attackDamage) effectsText += `+${buff.stats.attackDamage} Attack, `;
+            if (buff.stats.defense) effectsText += `+${buff.stats.defense} Defense, `;
+            if (buff.stats.maxHealth) effectsText += `+${buff.stats.maxHealth} Max Health, `;
+            effectsText = effectsText.replace(/, $/, '') + ` for ${buff.duration/1000}s.`;
+          }
+        }
+        
+        itemElement.innerHTML = `
+          <div class="item-name">${item.name}</div>
+          <div class="item-stats">${effectsText}</div>
+          <div class="item-action">
+            <button class="use-btn" data-item-id="${item.id}">Use</button>
+            <button class="sell-btn" data-item-id="${item.id}" data-type="consumable" data-price="${this.calculateSellPrice(item)}">Sell (${this.calculateSellPrice(item)}g)</button>
+          </div>
+        `;
+        
+        consumablesTab.appendChild(itemElement);
+        
+        // Add event listeners
+        const useBtn = itemElement.querySelector('.use-btn');
+        useBtn.addEventListener('click', () => {
+          document.dispatchEvent(new CustomEvent('use-item', {
+            detail: {
+              itemId: item.id
+            }
+          }));
+        });
+        
+        const sellBtn = itemElement.querySelector('.sell-btn');
+        sellBtn.addEventListener('click', () => {
+          document.dispatchEvent(new CustomEvent('sell-item', {
+            detail: {
+              itemId: item.id,
+              type: 'consumable',
+              price: this.calculateSellPrice(item)
+            }
+          }));
+        });
+      });
+    }
+  }
+  
+  calculateSellPrice(item) {
+    // Base price depends on rarity
+    let basePrice = 5; // common
+    if (item.rarity === 'rare') basePrice = 20;
+    if (item.rarity === 'epic') basePrice = 50;
+    
+    // Adjust for level
+    if (item.level) {
+      basePrice += item.level * 2;
+    }
+    
+    return basePrice;
+  }
+  
+  formatStatName(stat) {
+    switch(stat) {
+      case 'attackDamage': return 'Attack';
+      case 'defense': return 'Defense';
+      case 'maxHealth': return 'Max Health';
+      default: return stat.charAt(0).toUpperCase() + stat.slice(1);
+    }
+  }
+  
+  toggleShop(gold) {
+    const shopPanel = document.getElementById('shop-panel');
+    
+    if (shopPanel.style.display === 'block') {
+      shopPanel.style.display = 'none';
+    } else {
+      // Update shop contents before showing
+      this.updateShop(gold);
+      
+      // Show shop
+      shopPanel.style.display = 'block';
+      
+      // Set up tab switching
+      const tabs = shopPanel.querySelectorAll('.shop-tab');
+      tabs.forEach(tab => {
+        tab.addEventListener('click', () => {
+          // Deactivate all tabs
+          tabs.forEach(t => t.classList.remove('active'));
+          
+          // Activate clicked tab
+          tab.classList.add('active');
+          
+          // Hide all content sections
+          const contentSections = shopPanel.querySelectorAll('.shop-content');
+          contentSections.forEach(section => section.classList.remove('active'));
+          
+          // Show corresponding content
+          const tabName = tab.getAttribute('data-tab');
+          document.getElementById(`${tabName}-tab`).classList.add('active');
+        });
+      });
+      
+      // Set up close button
+      const closeButton = document.getElementById('close-shop');
+      closeButton.addEventListener('click', () => {
+        shopPanel.style.display = 'none';
+      });
+    }
+  }
+  
+  updateShop(gold) {
+    // Update shop title
+    document.getElementById('shop-title').textContent = 'Town Shop';
+    
+    // Generate shop inventory
+    const shopItems = this.generateShopItems();
+    
+    // Update weapon tab
+    const weaponsTab = document.getElementById('weapons-tab');
+    weaponsTab.innerHTML = '';
+    
+    shopItems.weapons.forEach(item => {
+      this.addShopItem(weaponsTab, item, gold);
+    });
+    
+    // Update armor tab
+    const armorTab = document.getElementById('armor-tab');
+    armorTab.innerHTML = '';
+    
+    shopItems.armor.forEach(item => {
+      this.addShopItem(armorTab, item, gold);
+    });
+    
+    // Update consumables tab
+    const consumablesTab = document.getElementById('consumables-tab');
+    consumablesTab.innerHTML = '';
+    
+    shopItems.consumables.forEach(item => {
+      this.addShopItem(consumablesTab, item, gold);
+    });
+    
+    // Add special tavern item for beer
+    const beerItem = {
+      price: 5,
+      item: {
+        id: 'beer',
+        name: 'Frothy Beer',
+        type: 'consumable',
+        rarity: 'common',
+        description: 'A refreshing beer that temporarily increases your attack and defense.',
+        effects: {
+          buff: {
+            id: 'beer_buff',
+            duration: 60000,
+            stats: { attackDamage: 5, defense: 3 }
+          }
+        }
+      }
+    };
+    
+    this.addShopItem(consumablesTab, beerItem, gold, true);
+  }
+  
+  addShopItem(container, item, playerGold, isBeer = false) {
+    const itemElement = document.createElement('div');
+    itemElement.className = `shop-item item-${item.item.rarity}`;
+    
+    let statsText = '';
+    if (item.item.stats) {
+      statsText = Object.entries(item.item.stats)
+        .map(([stat, value]) => `${this.formatStatName(stat)}: +${value}`)
+        .join(', ');
+    } else if (item.item.effects) {
+      if (item.item.effects.health) {
+        statsText += `Restores ${item.item.effects.health} health. `;
+      }
+      if (item.item.effects.buff) {
+        const buff = item.item.effects.buff;
+        statsText += 'Grants buff: ';
+        if (buff.stats.attackDamage) statsText += `+${buff.stats.attackDamage} Attack, `;
+        if (buff.stats.defense) statsText += `+${buff.stats.defense} Defense, `;
+        if (buff.stats.maxHealth) statsText += `+${buff.stats.maxHealth} Max Health, `;
+        statsText = statsText.replace(/, $/, '') + ` for ${buff.duration/1000}s.`;
+      }
+    }
+    
+    itemElement.innerHTML = `
+      <div class="item-name">${item.item.name}</div>
+      <div class="item-stats">${statsText}</div>
+      <div class="item-action">
+        <span class="shop-item-price">${item.price} gold</span>
+        <button class="buy-btn" ${playerGold < item.price ? 'disabled' : ''}>${isBeer ? 'Drink' : 'Buy'}</button>
+      </div>
+    `;
+    
+    container.appendChild(itemElement);
+    
+    // Add event listener
+    const buyBtn = itemElement.querySelector('.buy-btn');
+    buyBtn.addEventListener('click', () => {
+      if (isBeer) {
+        document.dispatchEvent(new CustomEvent('drink-beer'));
+      } else {
+        document.dispatchEvent(new CustomEvent('buy-item', {
+          detail: {
+            item: item
+          }
+        }));
+      }
+    });
+  }
+  
+  generateShopItems() {
+    // Generate a selection of items for the shop
+    return {
+      weapons: [
+        {
+          price: 50,
+          item: {
+            id: 'shop_sword_1',
+            name: 'Iron Sword',
+            type: 'equipment',
+            equipType: 'weapon',
+            rarity: 'common',
+            level: 1,
+            stats: { attackDamage: 15 },
+            description: 'A basic iron sword.'
+          }
+        },
+        {
+          price: 120,
+          item: {
+            id: 'shop_sword_2',
+            name: 'Steel Sword',
+            type: 'equipment',
+            equipType: 'weapon',
+            rarity: 'common',
+            level: 2,
+            stats: { attackDamage: 22 },
+            description: 'A sturdy steel sword.'
+          }
+        },
+        {
+          price: 300,
+          item: {
+            id: 'shop_sword_3',
+            name: 'Knight\'s Blade',
+            type: 'equipment',
+            equipType: 'weapon',
+            rarity: 'rare',
+            level: 3,
+            stats: { attackDamage: 35 },
+            description: 'A finely crafted knight\'s blade.'
+          }
+        }
+      ],
+      armor: [
+        {
+          price: 40,
+          item: {
+            id: 'shop_armor_1',
+            name: 'Leather Armor',
+            type: 'equipment',
+            equipType: 'armor',
+            rarity: 'common',
+            level: 1,
+            stats: { defense: 10 },
+            description: 'Basic leather armor.'
+          }
+        },
+        {
+          price: 100,
+          item: {
+            id: 'shop_armor_2',
+            name: 'Chain Mail',
+            type: 'equipment',
+            equipType: 'armor',
+            rarity: 'common',
+            level: 2,
+            stats: { defense: 18 },
+            description: 'Protective chain mail armor.'
+          }
+        },
+        {
+          price: 250,
+          item: {
+            id: 'shop_armor_3',
+            name: 'Knight\'s Plate',
+            type: 'equipment',
+            equipType: 'armor',
+            rarity: 'rare',
+            level: 3,
+            stats: { defense: 30 },
+            description: 'Heavy plate armor worn by knights.'
+          }
+        }
+      ],
+      consumables: [
+        {
+          price: 10,
+          item: {
+            id: 'shop_potion_1',
+            name: 'Health Potion',
+            type: 'consumable',
+            rarity: 'common',
+            effects: { health: 50 },
+            description: 'Restores 50 health.'
+          }
+        },
+        {
+          price: 25,
+          item: {
+            id: 'shop_potion_2',
+            name: 'Greater Health Potion',
+            type: 'consumable',
+            rarity: 'common',
+            effects: { health: 100 },
+            description: 'Restores 100 health.'
+          }
+        },
+        {
+          price: 30,
+          item: {
+            id: 'shop_potion_3',
+            name: 'Strength Elixir',
+            type: 'consumable',
+            rarity: 'rare',
+            effects: {
+              buff: {
+                id: 'strength_buff',
+                duration: 120000, // 2 minutes
+                stats: { attackDamage: 10 }
+              }
+            },
+            description: 'Increases attack damage by 10 for 2 minutes.'
+          }
+        }
+      ]
+    };
+  }
+  
   capitalizeFirstLetter(string) {
     return string.charAt(0).toUpperCase() + string.slice(1);
+  }
+  
+  addStatusEffect(effectId, icon, duration, name) {
+    // If already active, just reset duration
+    if (this.activeEffects[effectId]) {
+      clearTimeout(this.activeEffects[effectId].timeout);
+      this.activeEffects[effectId].endTime = Date.now() + duration;
+      this.activeEffects[effectId].element.querySelector('.duration').textContent = Math.ceil(duration / 1000) + 's';
+      
+      // Set new timeout
+      this.activeEffects[effectId].timeout = setTimeout(() => {
+        this.removeStatusEffect(effectId);
+      }, duration);
+      
+      return;
+    }
+    
+    // Create new effect
+    const effectElement = document.createElement('div');
+    effectElement.className = 'status-effect';
+    effectElement.style.width = '40px';
+    effectElement.style.height = '40px';
+    effectElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+    effectElement.style.borderRadius = '5px';
+    effectElement.style.display = 'flex';
+    effectElement.style.flexDirection = 'column';
+    effectElement.style.alignItems = 'center';
+    effectElement.style.justifyContent = 'center';
+    effectElement.style.color = 'white';
+    effectElement.style.fontSize = '10px';
+    effectElement.style.position = 'relative';
+    effectElement.title = name;
+    
+    // Icon or symbol
+    const iconElement = document.createElement('div');
+    iconElement.className = 'icon';
+    iconElement.style.fontSize = '20px';
+    iconElement.textContent = icon;
+    effectElement.appendChild(iconElement);
+    
+    // Duration text
+    const durationElement = document.createElement('div');
+    durationElement.className = 'duration';
+    durationElement.textContent = Math.ceil(duration / 1000) + 's';
+    effectElement.appendChild(durationElement);
+    
+    this.statusContainer.appendChild(effectElement);
+    
+    // Store effect info
+    const endTime = Date.now() + duration;
+    const timeout = setTimeout(() => {
+      this.removeStatusEffect(effectId);
+    }, duration);
+    
+    this.activeEffects[effectId] = {
+      element: effectElement,
+      endTime,
+      timeout
+    };
+    
+    // Start update interval if not already running
+    if (!this.effectUpdateInterval) {
+      this.effectUpdateInterval = setInterval(() => {
+        this.updateStatusEffects();
+      }, 1000);
+    }
+  }
+  
+  removeStatusEffect(effectId) {
+    if (this.activeEffects[effectId]) {
+      this.statusContainer.removeChild(this.activeEffects[effectId].element);
+      clearTimeout(this.activeEffects[effectId].timeout);
+      delete this.activeEffects[effectId];
+      
+      // Stop interval if no effects are active
+      if (Object.keys(this.activeEffects).length === 0) {
+        clearInterval(this.effectUpdateInterval);
+        this.effectUpdateInterval = null;
+      }
+    }
+  }
+  
+  updateStatusEffects() {
+    const now = Date.now();
+    
+    for (const effectId in this.activeEffects) {
+      const effect = this.activeEffects[effectId];
+      const remaining = Math.max(0, Math.ceil((effect.endTime - now) / 1000));
+      effect.element.querySelector('.duration').textContent = remaining + 's';
+    }
   }
   
   cleanup() {

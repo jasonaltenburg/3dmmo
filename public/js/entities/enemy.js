@@ -550,7 +550,201 @@ export class Enemy {
       });
     }, 100);
     
-    return this.health <= 0;
+    // Return if enemy is dead and potential drops if killed
+    const isDead = this.health <= 0;
+    if (isDead) {
+      return {
+        dead: true,
+        drops: this.generateDrops()
+      };
+    }
+    
+    return { dead: false };
+  }
+  
+  generateDrops() {
+    const drops = { gold: 0, items: [] };
+    
+    // Gold drops based on enemy level
+    const baseGold = this.level * 5;
+    const randomFactor = Math.random() * 0.5 + 0.75; // 0.75 to 1.25 random multiplier
+    drops.gold = Math.floor(baseGold * randomFactor);
+    
+    // Item drops based on enemy type and level
+    const dropChance = Math.random();
+    
+    // Common item: 15% chance
+    // Rare item: 5% chance
+    // Epic item: 1% chance
+    
+    if (dropChance < 0.01 * this.level) {
+      // Epic drop (higher chance with higher level enemies)
+      drops.items.push(this.createItemDrop('epic'));
+    } else if (dropChance < 0.05 * this.level) {
+      // Rare drop
+      drops.items.push(this.createItemDrop('rare'));
+    } else if (dropChance < 0.15 * this.level) {
+      // Common drop
+      drops.items.push(this.createItemDrop('common'));
+    }
+    
+    // Additional chance for consumable
+    if (Math.random() < 0.1) {
+      drops.items.push(this.createConsumableDrop());
+    }
+    
+    return drops;
+  }
+  
+  createItemDrop(rarity) {
+    // Generate a random item based on enemy type and rarity
+    const itemTypes = ['weapon', 'armor', 'accessory'];
+    const itemType = itemTypes[Math.floor(Math.random() * itemTypes.length)];
+    
+    // Base stats multiplier based on rarity
+    let statMultiplier = 1.0;
+    if (rarity === 'rare') statMultiplier = 1.5;
+    if (rarity === 'epic') statMultiplier = 2.5;
+    
+    // Create item based on enemy type
+    let itemName, stats;
+    
+    switch(this.type) {
+      case 'skeleton':
+        if (itemType === 'weapon') {
+          itemName = `${rarity === 'epic' ? 'Ancient ' : ''}Bone Sword`;
+          stats = { attackDamage: Math.floor(5 * this.level * statMultiplier) };
+        } else if (itemType === 'armor') {
+          itemName = `${rarity === 'epic' ? 'Ancient ' : ''}Bone Armor`;
+          stats = { defense: Math.floor(3 * this.level * statMultiplier) };
+        } else {
+          itemName = `${rarity === 'epic' ? 'Ancient ' : ''}Skull Amulet`;
+          stats = { 
+            attackDamage: Math.floor(2 * this.level * statMultiplier),
+            defense: Math.floor(2 * this.level * statMultiplier)
+          };
+        }
+        break;
+        
+      case 'bat':
+        if (itemType === 'weapon') {
+          itemName = `${rarity === 'epic' ? 'Sonic ' : ''}Wing Blade`;
+          stats = { attackDamage: Math.floor(4 * this.level * statMultiplier) };
+        } else if (itemType === 'armor') {
+          itemName = `${rarity === 'epic' ? 'Sonic ' : ''}Leather Vest`;
+          stats = { defense: Math.floor(2 * this.level * statMultiplier) };
+        } else {
+          itemName = `${rarity === 'epic' ? 'Sonic ' : ''}Echo Pendant`;
+          stats = { 
+            attackDamage: Math.floor(1 * this.level * statMultiplier),
+            defense: Math.floor(3 * this.level * statMultiplier)
+          };
+        }
+        break;
+        
+      case 'snake':
+        if (itemType === 'weapon') {
+          itemName = `${rarity === 'epic' ? 'Venomous ' : ''}Fang Dagger`;
+          stats = { attackDamage: Math.floor(6 * this.level * statMultiplier) };
+        } else if (itemType === 'armor') {
+          itemName = `${rarity === 'epic' ? 'Venomous ' : ''}Scale Armor`;
+          stats = { defense: Math.floor(4 * this.level * statMultiplier) };
+        } else {
+          itemName = `${rarity === 'epic' ? 'Venomous ' : ''}Serpent Ring`;
+          stats = { 
+            attackDamage: Math.floor(3 * this.level * statMultiplier),
+            defense: Math.floor(2 * this.level * statMultiplier)
+          };
+        }
+        break;
+        
+      case 'vampire':
+        if (itemType === 'weapon') {
+          itemName = `${rarity === 'epic' ? 'Bloodthirsty ' : ''}Crimson Blade`;
+          stats = { attackDamage: Math.floor(8 * this.level * statMultiplier) };
+        } else if (itemType === 'armor') {
+          itemName = `${rarity === 'epic' ? 'Bloodthirsty ' : ''}Noble Garments`;
+          stats = { defense: Math.floor(5 * this.level * statMultiplier) };
+        } else {
+          itemName = `${rarity === 'epic' ? 'Bloodthirsty ' : ''}Ruby Amulet`;
+          stats = { 
+            attackDamage: Math.floor(4 * this.level * statMultiplier),
+            defense: Math.floor(3 * this.level * statMultiplier)
+          };
+        }
+        break;
+        
+      default:
+        itemName = `${rarity === 'epic' ? 'Mysterious ' : ''}Item`;
+        stats = { 
+          attackDamage: Math.floor(3 * this.level * statMultiplier),
+          defense: Math.floor(3 * this.level * statMultiplier)
+        };
+    }
+    
+    return {
+      id: 'item_' + Math.floor(Math.random() * 1000000),
+      name: itemName,
+      type: 'equipment',
+      equipType: itemType,
+      rarity: rarity,
+      level: this.level,
+      stats: stats,
+      description: `A ${rarity} ${itemType} dropped by a level ${this.level} ${this.type}.`
+    };
+  }
+  
+  createConsumableDrop() {
+    // Different consumables based on enemy type
+    let itemName, effects;
+    
+    switch(this.type) {
+      case 'skeleton':
+        itemName = 'Bone Marrow Potion';
+        effects = { health: 20 * this.level };
+        break;
+        
+      case 'bat':
+        itemName = 'Echo Potion';
+        effects = { health: 15 * this.level };
+        break;
+        
+      case 'snake':
+        itemName = 'Venom Extract';
+        effects = { 
+          buff: {
+            id: 'venom_buff',
+            duration: 30000, // 30 seconds
+            stats: { attackDamage: 5 * this.level }
+          }
+        };
+        break;
+        
+      case 'vampire':
+        itemName = 'Blood Vial';
+        effects = { 
+          health: 10 * this.level,
+          buff: {
+            id: 'blood_buff',
+            duration: 60000, // 60 seconds
+            stats: { attackDamage: 3 * this.level, defense: 3 * this.level }
+          }
+        };
+        break;
+        
+      default:
+        itemName = 'Strange Potion';
+        effects = { health: 10 * this.level };
+    }
+    
+    return {
+      id: 'consumable_' + Math.floor(Math.random() * 1000000),
+      name: itemName,
+      type: 'consumable',
+      rarity: 'common',
+      effects: effects,
+      description: `A consumable dropped by a level ${this.level} ${this.type}.`
+    };
   }
   
   cleanup() {
