@@ -1,0 +1,27 @@
+{
+  "name": "3dmmo",
+  "version": "1.0.0",
+  "main": "index.js",
+  "scripts": {
+    "test": "mocha --exit",
+    "start": "node server.js",
+    "dev": "nodemon server.js",
+    "copy-three": "mkdir -p public/lib/three && cp -r node_modules/three/build public/lib/three/ && cp -r node_modules/three/examples public/lib/three/",
+    "prepare": "npm run copy-three"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "description": "",
+  "dependencies": {
+    "express": "^4.21.2",
+    "socket.io": "^4.8.1",
+    "three": "^0.174.0"
+  },
+  "devDependencies": {
+    "chai": "^5.2.0",
+    "mocha": "^11.1.0",
+    "nodemon": "^3.1.9",
+    "supertest": "^7.0.0"
+  }
+}
