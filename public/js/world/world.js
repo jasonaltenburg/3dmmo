@@ -1,4 +1,4 @@
-import * as THREE from '/lib/three/build/three.module.js';
+// import * as THREE from '/lib/three/build/three.module.js';
 
 export class World {
   constructor(scene) {
@@ -9,6 +9,7 @@ export class World {
     this.createCave();
     this.createField();
     this.createCastle();
+    this.createTavern();
   }
 
   createTown() {
@@ -368,6 +369,229 @@ export class World {
     // Position the entire castle
     castleGroup.position.set(-40, 0, 0);
     this.scene.add(castleGroup);
+  }
+
+  createTavern() {
+    // Northeast area - Tavern for beer buffs
+    const tavernSize = 30;
+    const tavernGroundGeometry = new THREE.PlaneGeometry(tavernSize, tavernSize);
+    const tavernGroundMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x8b4513,
+      roughness: 0.8,
+      metalness: 0.2
+    });
+    const tavernGround = new THREE.Mesh(tavernGroundGeometry, tavernGroundMaterial);
+    tavernGround.rotation.x = -Math.PI / 2;
+    tavernGround.position.set(40, 0, -50); // Northeast of town
+    tavernGround.receiveShadow = true;
+    this.scene.add(tavernGround);
+    
+    // Add tavern structure
+    this.addTavernStructure();
+    
+    // Add region data
+    this.regions.push({
+      name: 'Tavern',
+      position: new THREE.Vector3(40, 0, -50),
+      radius: tavernSize / 2,
+      type: 'safe',
+      shopType: 'tavern'
+    });
+    
+    // Log for debugging
+    console.log('Tavern region created at position:', new THREE.Vector3(30, 0, -30));
+    console.log('Regions array now contains:', this.regions.length, 'regions');
+    console.log('Regions:', this.regions.map(r => r.name).join(', '));
+  }
+  
+  addTavernStructure() {
+    // Main tavern structure
+    const tavernGroup = new THREE.Group();
+    
+    // Base
+    const baseGeometry = new THREE.BoxGeometry(15, 6, 12);
+    const baseMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x8b4513,
+      roughness: 0.8,
+      metalness: 0.2
+    });
+    const base = new THREE.Mesh(baseGeometry, baseMaterial);
+    base.position.set(0, 3, 0);
+    base.castShadow = true;
+    base.receiveShadow = true;
+    tavernGroup.add(base);
+    
+    // Roof
+    const roofGeometry = new THREE.ConeGeometry(12, 8, 4);
+    const roofMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x800000,
+      roughness: 0.7,
+      metalness: 0.2
+    });
+    const roof = new THREE.Mesh(roofGeometry, roofMaterial);
+    roof.position.set(0, 10, 0);
+    roof.rotation.y = Math.PI / 4; // Rotate 45 degrees to align with building
+    roof.castShadow = true;
+    tavernGroup.add(roof);
+    
+    // Door
+    const doorGeometry = new THREE.PlaneGeometry(3, 4);
+    const doorMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0x4d2600,
+      roughness: 0.9,
+      metalness: 0.1
+    });
+    const door = new THREE.Mesh(doorGeometry, doorMaterial);
+    door.position.set(0, 2, 6.01); // Slightly in front of the building
+    door.castShadow = true;
+    tavernGroup.add(door);
+    
+    // Windows
+    const windowGeometry = new THREE.PlaneGeometry(2, 2);
+    const windowMaterial = new THREE.MeshStandardMaterial({ 
+      color: 0xffff99,
+      roughness: 0.3,
+      metalness: 0.5,
+      emissive: 0xffff99,
+      emissiveIntensity: 0.3
+    });
+    
+    // Left window
+    const leftWindow = new THREE.Mesh(windowGeometry, windowMaterial);
+    leftWindow.position.set(-5, 3, 6.01);
+    tavernGroup.add(leftWindow);
+    
+    // Right window
+    const rightWindow = new THREE.Mesh(windowGeometry, windowMaterial);
+    rightWindow.position.set(5, 3, 6.01);
+    tavernGroup.add(rightWindow);
+    
+// Remove or comment out your old sign/post code, then add this instead:
+
+function createTavernSign(text) {
+  // Create a canvas for drawing the sign
+  const canvas = document.createElement('canvas');
+  canvas.width = 256;
+  canvas.height = 128;
+  const ctx = canvas.getContext('2d');
+
+  // Background color (light tan)
+  ctx.fillStyle = '#d2b48c';
+  ctx.fillRect(0, 0, canvas.width, canvas.height);
+
+  // Sign text (centered)
+  ctx.fillStyle = '#000';
+  ctx.font = '30px sans-serif';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(text, canvas.width / 2, canvas.height / 2);
+
+  // Convert canvas to a texture
+  const texture = new THREE.CanvasTexture(canvas);
+
+  // Create a plane for the sign
+  const geometry = new THREE.PlaneGeometry(5, 2);
+  const material = new THREE.MeshStandardMaterial({ map: texture });
+  const mesh = new THREE.Mesh(geometry, material);
+
+  // Optional: slight tilt or rotation if you prefer
+  // mesh.rotation.x = -0.1; 
+  return mesh;
+}
+
+// Create the new sign
+const tavernSign = createTavernSign("Deos Magic Tavern");
+
+// Position the sign so it doesn't clip the roof
+// Adjust these values to taste
+tavernSign.position.set(0, 4.5, 6.8);
+tavernSign.castShadow = true;
+tavernSign.receiveShadow = true;
+
+// Add it to your tavern group
+tavernGroup.add(tavernSign);
+   
+    // Add some decorations around the tavern
+    
+// Function to generate a wood texture image as a data URL
+function generateWoodTextureDataURL(width, height) {
+  const canvas = document.createElement("canvas");
+  canvas.width = width;
+  canvas.height = height;
+  const ctx = canvas.getContext("2d");
+
+  // Generate wood rings using a sine wave effect based on distance from center
+  for (let y = 0; y < height; y++) {
+    for (let x = 0; x < width; x++) {
+      const dx = x - width / 2;
+      const dy = y - height / 2;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      // Sine pattern for wood rings
+      const value = Math.sin(dist / 10) * 0.5 + 0.5;
+      const r = Math.floor(value * 100 + 50); // Range ~50-150
+      const g = Math.floor(value * 70 + 40);  // Range ~40-110
+      const b = Math.floor(value * 40 + 20);  // Range ~20-60
+      ctx.fillStyle = `rgb(${r}, ${g}, ${b})`;
+      ctx.fillRect(x, y, 1, 1);
+    }
+  }
+  
+  return canvas.toDataURL("image/png");
+}
+
+// Generate the wood texture image and load it as a texture
+const woodTextureDataURL = generateWoodTextureDataURL(512, 512);
+const woodTexture = new THREE.TextureLoader().load(woodTextureDataURL);
+
+// Use the generated wood texture in your barrel material
+const barrelMaterial = new THREE.MeshStandardMaterial({
+  map: woodTexture,
+  roughness: 0.9,
+  metalness: 0.1
+});
+
+// Custom barrel geometry function (from your previous code)
+function makeBarrel(r, R, h) {
+  const g = new THREE.CylinderGeometry(1, 1, 2, 24, 32);
+  const v3 = new THREE.Vector3();
+  const v2 = new THREE.Vector2();
+  const pos = g.attributes.position;
+  const rDiff = R - r;
+  for (let i = 0; i < pos.count; i++) {
+    v3.fromBufferAttribute(pos, i);
+    const y = Math.abs(v3.y);
+    const rShift = Math.pow(Math.sqrt(1 - (y * y)), 2) * rDiff + r;
+    v2.set(v3.x, v3.z).setLength(rShift);
+    v3.set(v2.x, v3.y, v2.y);
+    pos.setXYZ(i, v3.x, v3.y, v3.z);
+  }
+  g.scale(1, h * 0.5, 1);
+  return g;
+}
+
+// Replace your barrel blocks in the tavern with the following:
+
+// Barrel 1 - using custom geometry with the wood texture
+const barrelGeom1 = makeBarrel(0.5, 1.0, 2);
+const barrel1 = new THREE.Mesh(barrelGeom1, barrelMaterial);
+barrel1.position.set(-7, 1, 8);
+barrel1.rotation.z = 0.1;
+barrel1.castShadow = true;
+barrel1.receiveShadow = true;
+tavernGroup.add(barrel1);
+
+// Barrel 2 - using custom geometry with the wood texture
+const barrelGeom2 = makeBarrel(0.5, 1.0, 2);
+const barrel2 = new THREE.Mesh(barrelGeom2, barrelMaterial);
+barrel2.position.set(-6, 1, 10);
+barrel2.rotation.z = -0.1;
+barrel2.castShadow = true;
+barrel2.receiveShadow = true;
+tavernGroup.add(barrel2);
+    
+    // Position the entire tavern
+    tavernGroup.position.set(40, 0, -50);
+    this.scene.add(tavernGroup);
   }
 
   getRegionAtPosition(position) {

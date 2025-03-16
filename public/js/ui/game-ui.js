@@ -1,4 +1,4 @@
-import * as THREE from '/lib/three/build/three.module.js';
+// import * as THREE from '/lib/three/build/three.module.js';
 
 export class GameUI {
   constructor() {
@@ -6,6 +6,8 @@ export class GameUI {
     this.createChatSystem();
     this.createMinimap();
     this.createStatusEffects();
+    this.createInventoryPanel();
+    this.createShopPanel();
     
     // Keep track of UI state
     this.currentRegion = null;
@@ -14,154 +16,103 @@ export class GameUI {
       health: 100,
       maxHealth: 100,
       experience: 0,
-      experienceToNextLevel: 100
+      experienceToNextLevel: 100,
+      gold: 0
     };
+    
+    // Store active effects
+    this.activeEffects = {};
   }
-  
+
   createUI() {
-    // Main UI container
+    console.log("Creating UI dynamically...");
+
     this.uiContainer = document.createElement('div');
     this.uiContainer.id = 'game-ui';
     this.uiContainer.style.position = 'absolute';
+    this.uiContainer.style.top = 0;
+    this.uiContainer.style.left = 0;
     this.uiContainer.style.width = '100%';
     this.uiContainer.style.height = '100%';
-    this.uiContainer.style.pointerEvents = 'none'; // Allow clicking through UI
+    this.uiContainer.style.zIndex = '9999';
+    this.uiContainer.style.pointerEvents = 'none';
     document.body.appendChild(this.uiContainer);
-    
-    // Region info display
+
+    // Instead of silently failing, log a warning if there's no #loading element
+    const loadingScreen = document.getElementById("loading");
+    if (!loadingScreen) {
+      console.warn("No #loading element found. Can't hide loading screen.");
+    } else {
+      loadingScreen.style.display = "none";
+    }
+
+    // Region Info
     this.regionInfo = document.createElement('div');
     this.regionInfo.id = 'region-info';
-    this.regionInfo.style.position = 'absolute';
-    this.regionInfo.style.top = '10px';
-    this.regionInfo.style.right = '10px';
-    this.regionInfo.style.padding = '10px';
-    this.regionInfo.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    this.regionInfo.style.color = 'white';
-    this.regionInfo.style.borderRadius = '5px';
-    this.regionInfo.style.fontFamily = 'Arial, sans-serif';
-    this.regionInfo.style.fontSize = '16px';
-    this.regionInfo.style.transition = 'opacity 0.5s';
-    this.regionInfo.style.opacity = '0';
+    this.regionInfo.style = "position: absolute; top: 10px; right: 10px; padding: 10px; background: rgba(0,0,0,0.7); color: white; border-radius: 5px; font-size: 16px; transition: opacity 0.5s; opacity: 0;";
     this.uiContainer.appendChild(this.regionInfo);
-    
-    // Player stats display
+
+    // Player Stats
     this.statsContainer = document.createElement('div');
     this.statsContainer.id = 'player-stats';
-    this.statsContainer.style.position = 'absolute';
-    this.statsContainer.style.bottom = '10px';
-    this.statsContainer.style.left = '10px';
-    this.statsContainer.style.padding = '10px';
-    this.statsContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    this.statsContainer.style.color = 'white';
-    this.statsContainer.style.borderRadius = '5px';
-    this.statsContainer.style.fontFamily = 'Arial, sans-serif';
-    
-    // Health bar
+    this.statsContainer.style = "position: absolute; bottom: 10px; left: 10px; padding: 10px; background: rgba(0,0,0,0.7); color: white; border-radius: 5px;";
+
+    // Health Bar
     this.healthBarContainer = document.createElement('div');
-    this.healthBarContainer.style.marginBottom = '5px';
-    
-    const healthLabel = document.createElement('div');
-    healthLabel.textContent = 'Health:';
-    healthLabel.style.marginBottom = '2px';
-    this.healthBarContainer.appendChild(healthLabel);
-    
-    const healthBarBg = document.createElement('div');
-    healthBarBg.style.width = '200px';
-    healthBarBg.style.height = '15px';
-    healthBarBg.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-    healthBarBg.style.borderRadius = '3px';
-    
-    this.healthBar = document.createElement('div');
-    this.healthBar.style.width = '100%';
-    this.healthBar.style.height = '100%';
-    this.healthBar.style.backgroundColor = '#00cc00';
-    this.healthBar.style.borderRadius = '3px';
-    this.healthBar.style.transition = 'width 0.3s, background-color 0.3s';
-    
-    this.healthText = document.createElement('div');
-    this.healthText.style.position = 'absolute';
-    this.healthText.style.width = '200px';
-    this.healthText.style.textAlign = 'center';
-    this.healthText.style.fontSize = '12px';
-    this.healthText.style.lineHeight = '15px';
-    this.healthText.textContent = '100 / 100';
-    
-    healthBarBg.appendChild(this.healthBar);
-    healthBarBg.appendChild(this.healthText);
-    this.healthBarContainer.appendChild(healthBarBg);
+    this.healthBarContainer.innerHTML = `
+        <div>Health:</div>
+        <div class="bar-container">
+            <div id="health-bar" class="bar health"></div>
+        </div>
+    `;
     this.statsContainer.appendChild(this.healthBarContainer);
-    
-    // Experience bar
+
+    // Assign `this.healthBar` properly
+    this.healthBar = this.healthBarContainer.querySelector('#health-bar');
+
+    // Experience Bar
     this.expBarContainer = document.createElement('div');
-    
-    const expLabel = document.createElement('div');
-    expLabel.textContent = 'Experience:';
-    expLabel.style.marginBottom = '2px';
-    this.expBarContainer.appendChild(expLabel);
-    
-    const expBarBg = document.createElement('div');
-    expBarBg.style.width = '200px';
-    expBarBg.style.height = '10px';
-    expBarBg.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
-    expBarBg.style.borderRadius = '3px';
-    
-    this.expBar = document.createElement('div');
-    this.expBar.style.width = '0%';
-    this.expBar.style.height = '100%';
-    this.expBar.style.backgroundColor = '#9933ff';
-    this.expBar.style.borderRadius = '3px';
-    this.expBar.style.transition = 'width 0.3s';
-    
-    this.expText = document.createElement('div');
-    this.expText.style.position = 'absolute';
-    this.expText.style.width = '200px';
-    this.expText.style.textAlign = 'center';
-    this.expText.style.fontSize = '9px';
-    this.expText.style.lineHeight = '10px';
-    this.expText.style.color = 'white';
-    this.expText.textContent = 'Level 1 - 0 / 100 XP';
-    
-    expBarBg.appendChild(this.expBar);
-    expBarBg.appendChild(this.expText);
-    this.expBarContainer.appendChild(expBarBg);
+    this.expBarContainer.innerHTML = `
+        <div>XP:</div>
+        <div class="bar-container">
+            <div id="xp-bar" class="bar xp"></div>
+        </div>
+    `;
     this.statsContainer.appendChild(this.expBarContainer);
-    
+
+    // Assign `this.expBar` properly
+    this.expBar = this.expBarContainer.querySelector('#xp-bar');
+
+    // Gold Display
+    this.goldDisplay = document.createElement('div');
+    this.goldDisplay.innerHTML = `Gold: <span id="gold-display" style="color: gold; font-weight: bold;">0</span>`;
+    this.statsContainer.appendChild(this.goldDisplay);
+
     this.uiContainer.appendChild(this.statsContainer);
-    
-    // Combat log
+
+    // Combat Log
     this.combatLog = document.createElement('div');
     this.combatLog.id = 'combat-log';
-    this.combatLog.style.position = 'absolute';
-    this.combatLog.style.bottom = '10px';
-    this.combatLog.style.right = '10px';
-    this.combatLog.style.width = '300px';
-    this.combatLog.style.maxHeight = '150px';
-    this.combatLog.style.overflowY = 'auto';
-    this.combatLog.style.padding = '10px';
-    this.combatLog.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    this.combatLog.style.color = 'white';
-    this.combatLog.style.borderRadius = '5px';
-    this.combatLog.style.fontFamily = 'Arial, sans-serif';
-    this.combatLog.style.fontSize = '14px';
+    this.combatLog.style = "position: absolute; bottom: 10px; right: 10px; width: 300px; max-height: 150px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.7); color: white; border-radius: 5px; font-size: 14px;";
     this.uiContainer.appendChild(this.combatLog);
-    
-    // Level up notification
-    this.levelUpNotif = document.createElement('div');
-    this.levelUpNotif.id = 'level-up';
-    this.levelUpNotif.style.position = 'absolute';
-    this.levelUpNotif.style.top = '50%';
-    this.levelUpNotif.style.left = '50%';
-    this.levelUpNotif.style.transform = 'translate(-50%, -50%)';
-    this.levelUpNotif.style.padding = '20px';
-    this.levelUpNotif.style.backgroundColor = 'rgba(153, 51, 255, 0.8)';
-    this.levelUpNotif.style.color = 'white';
-    this.levelUpNotif.style.borderRadius = '10px';
-    this.levelUpNotif.style.fontFamily = 'Arial, sans-serif';
-    this.levelUpNotif.style.fontSize = '24px';
-    this.levelUpNotif.style.textAlign = 'center';
-    this.levelUpNotif.style.display = 'none';
-    this.uiContainer.appendChild(this.levelUpNotif);
+
+    // Inventory Panel
+    this.inventoryPanel = document.createElement('div');
+    this.inventoryPanel.id = 'inventory-panel';
+    this.inventoryPanel.style = "position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 600px; height: 400px; background: rgba(0,0,0,0.85); color: white; padding: 20px; border-radius: 5px; display: none;";
+    this.inventoryPanel.innerHTML = "<h2>Inventory</h2>";
+    this.uiContainer.appendChild(this.inventoryPanel);
+
+    // Shop Panel
+    this.shopPanel = document.createElement('div');
+    this.shopPanel.id = 'shop-panel';
+    this.shopPanel.style = "position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 600px; height: 400px; background: rgba(0,0,0,0.85); color: white; padding: 20px; border-radius: 5px; display: none;";
+    this.shopPanel.innerHTML = "<h2>Shop</h2>";
+    this.uiContainer.appendChild(this.shopPanel);
+
+    console.log("UI Created!");
   }
+
   
   createChatSystem() {
     // Chat container
@@ -369,6 +320,9 @@ export class GameUI {
         case 'Castle':
           ctx.fillStyle = '#444';
           break;
+        case 'Tavern':
+          ctx.fillStyle = '#8b4513';
+          break;
         default:
           ctx.fillStyle = '#333';
       }
@@ -435,438 +389,331 @@ export class GameUI {
     this.statusContainer.style.flexDirection = 'column';
     this.statusContainer.style.gap = '5px';
     this.uiContainer.appendChild(this.statusContainer);
-    
-    // Store active effects
-    this.activeEffects = {};
   }
   
-  addStatusEffect(effectId, icon, duration, name) {
-    // If already active, just reset duration
-    if (this.activeEffects[effectId]) {
-      clearTimeout(this.activeEffects[effectId].timeout);
-      this.activeEffects[effectId].endTime = Date.now() + duration;
-      this.activeEffects[effectId].element.querySelector('.duration').textContent = Math.ceil(duration / 1000) + 's';
-      
-      // Set new timeout
-      this.activeEffects[effectId].timeout = setTimeout(() => {
-        this.removeStatusEffect(effectId);
-      }, duration);
-      
-      return;
-    }
+  createInventoryPanel() {
+    // Create inventory panel
+    const inventoryPanel = document.createElement('div');
+    inventoryPanel.id = 'inventory-panel';
+    inventoryPanel.style.position = 'absolute';
+    inventoryPanel.style.left = '50%';
+    inventoryPanel.style.top = '50%';
+    inventoryPanel.style.transform = 'translate(-50%, -50%)';
+    inventoryPanel.style.width = '600px';
+    inventoryPanel.style.height = '400px';
+    inventoryPanel.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+    inventoryPanel.style.color = 'white';
+    inventoryPanel.style.padding = '20px';
+    inventoryPanel.style.borderRadius = '5px';
+    inventoryPanel.style.fontFamily = 'Arial, sans-serif';
+    inventoryPanel.style.fontSize = '14px';
+    inventoryPanel.style.display = 'none';
+    inventoryPanel.style.zIndex = '1000';
+    inventoryPanel.style.pointerEvents = 'auto';
     
-    // Create new effect
-    const effectElement = document.createElement('div');
-    effectElement.className = 'status-effect';
-    effectElement.style.width = '40px';
-    effectElement.style.height = '40px';
-    effectElement.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
-    effectElement.style.borderRadius = '5px';
-    effectElement.style.display = 'flex';
-    effectElement.style.flexDirection = 'column';
-    effectElement.style.alignItems = 'center';
-    effectElement.style.justifyContent = 'center';
-    effectElement.style.color = 'white';
-    effectElement.style.fontSize = '10px';
-    effectElement.style.position = 'relative';
-    effectElement.title = name;
+    // Inventory title
+    const title = document.createElement('h2');
+    title.textContent = 'Inventory';
+    inventoryPanel.appendChild(title);
     
-    // Icon or symbol
-    const iconElement = document.createElement('div');
-    iconElement.className = 'icon';
-    iconElement.style.fontSize = '20px';
-    iconElement.textContent = icon;
-    effectElement.appendChild(iconElement);
+    // Tabs
+    const tabsContainer = document.createElement('div');
+    tabsContainer.id = 'inventory-tabs';
+    tabsContainer.style.display = 'flex';
+    tabsContainer.style.marginBottom = '15px';
+    tabsContainer.style.borderBottom = '1px solid #555';
     
-    // Duration text
-    const durationElement = document.createElement('div');
-    durationElement.className = 'duration';
-    durationElement.textContent = Math.ceil(duration / 1000) + 's';
-    effectElement.appendChild(durationElement);
+    // Equipment tab
+    const equipmentTab = document.createElement('div');
+    equipmentTab.className = 'inventory-tab active';
+    equipmentTab.dataset.tab = 'equipment';
+    equipmentTab.textContent = 'Equipment';
+    equipmentTab.style.padding = '8px 15px';
+    equipmentTab.style.marginRight = '5px';
+    equipmentTab.style.cursor = 'pointer';
+    equipmentTab.style.borderTopLeftRadius = '5px';
+    equipmentTab.style.borderTopRightRadius = '5px';
+    equipmentTab.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+    equipmentTab.style.border = '1px solid #555';
+    equipmentTab.style.borderBottom = 'none';
+    tabsContainer.appendChild(equipmentTab);
     
-    this.statusContainer.appendChild(effectElement);
+    // Consumables tab
+    const consumablesTab = document.createElement('div');
+    consumablesTab.className = 'inventory-tab';
+    consumablesTab.dataset.tab = 'consumables';
+    consumablesTab.textContent = 'Consumables';
+    consumablesTab.style.padding = '8px 15px';
+    consumablesTab.style.marginRight = '5px';
+    consumablesTab.style.cursor = 'pointer';
+    consumablesTab.style.borderTopLeftRadius = '5px';
+    consumablesTab.style.borderTopRightRadius = '5px';
+    tabsContainer.appendChild(consumablesTab);
     
-    // Store effect info
-    const endTime = Date.now() + duration;
-    const timeout = setTimeout(() => {
-      this.removeStatusEffect(effectId);
-    }, duration);
+    inventoryPanel.appendChild(tabsContainer);
     
-    this.activeEffects[effectId] = {
-      element: effectElement,
-      endTime,
-      timeout
-    };
+    // Equipment content
+    const equipmentContent = document.createElement('div');
+    equipmentContent.id = 'equipment-tab';
+    equipmentContent.className = 'inventory-content active';
+    equipmentContent.style.display = 'block';
+    equipmentContent.style.height = '320px';
+    equipmentContent.style.overflowY = 'auto';
+    inventoryPanel.appendChild(equipmentContent);
     
-    // Start update interval if not already running
-    if (!this.effectUpdateInterval) {
-      this.effectUpdateInterval = setInterval(() => {
-        this.updateStatusEffects();
-      }, 1000);
-    }
+    // Consumables content
+    const consumablesContent = document.createElement('div');
+    consumablesContent.id = 'consumables-tab';
+    consumablesContent.className = 'inventory-content';
+    consumablesContent.style.display = 'none';
+    consumablesContent.style.height = '320px';
+    consumablesContent.style.overflowY = 'auto';
+    inventoryPanel.appendChild(consumablesContent);
+    
+    // Close button
+    const closeButton = document.createElement('button');
+    closeButton.id = 'close-inventory';
+    closeButton.textContent = 'X';
+    closeButton.style.position = 'absolute';
+    closeButton.style.top = '10px';
+    closeButton.style.right = '10px';
+    closeButton.style.padding = '5px 10px';
+    closeButton.style.border = 'none';
+    closeButton.style.borderRadius = '3px';
+    closeButton.style.backgroundColor = '#555';
+    closeButton.style.color = 'white';
+    closeButton.style.cursor = 'pointer';
+    inventoryPanel.appendChild(closeButton);
+    
+    // Add to UI
+    this.uiContainer.appendChild(inventoryPanel);
+    
+    // Add event listeners for tabs
+    equipmentTab.addEventListener('click', () => {
+      this.switchInventoryTab('equipment');
+    });
+    
+    consumablesTab.addEventListener('click', () => {
+      this.switchInventoryTab('consumables');
+    });
+    
+    // Add event listener for close button
+    closeButton.addEventListener('click', () => {
+      inventoryPanel.style.display = 'none';
+    });
   }
   
-  removeStatusEffect(effectId) {
-    if (this.activeEffects[effectId]) {
-      this.statusContainer.removeChild(this.activeEffects[effectId].element);
-      clearTimeout(this.activeEffects[effectId].timeout);
-      delete this.activeEffects[effectId];
-      
-      // Stop interval if no effects are active
-      if (Object.keys(this.activeEffects).length === 0) {
-        clearInterval(this.effectUpdateInterval);
-        this.effectUpdateInterval = null;
-      }
-    }
-  }
-  
-  updateStatusEffects() {
-    const now = Date.now();
+  switchInventoryTab(tabName) {
+    // Get all tabs and content
+    const tabs = document.querySelectorAll('.inventory-tab');
+    const contents = document.querySelectorAll('.inventory-content');
     
-    for (const effectId in this.activeEffects) {
-      const effect = this.activeEffects[effectId];
-      const remaining = Math.max(0, Math.ceil((effect.endTime - now) / 1000));
-      effect.element.querySelector('.duration').textContent = remaining + 's';
-    }
+    // Remove active class from all tabs and hide all content
+    tabs.forEach(tab => tab.classList.remove('active'));
+    contents.forEach(content => content.style.display = 'none');
+    
+    // Add active class to selected tab and show corresponding content
+    document.querySelector(`.inventory-tab[data-tab="${tabName}"]`).classList.add('active');
+    document.getElementById(`${tabName}-tab`).style.display = 'block';
   }
   
-  showRegionInfo(region) {
-    if (region !== this.currentRegion) {
-      this.currentRegion = region;
-      
-      if (region) {
-        // Update region info display
-        let infoText = `<h3>${region.name}</h3>`;
-        
-        if (region.type === 'safe') {
-          infoText += '<p>Safe Zone</p>';
-        } else if (region.type === 'combat') {
-          infoText += `<p>Enemy Level: ${region.enemyLevel}</p>`;
-          infoText += `<p>Enemy Type: ${this.capitalizeFirstLetter(region.enemyType)}</p>`;
+  createShopPanel() {
+    // Create shop panel
+    const shopPanel = document.createElement('div');
+    shopPanel.id = 'shop-panel';
+    shopPanel.style.position = 'absolute';
+    shopPanel.style.left = '50%';
+    shopPanel.style.top = '50%';
+    shopPanel.style.transform = 'translate(-50%, -50%)';
+    shopPanel.style.width = '600px';
+    shopPanel.style.height = '400px';
+    shopPanel.style.backgroundColor = 'rgba(0, 0, 0, 0.85)';
+    shopPanel.style.color = 'white';
+    shopPanel.style.padding = '20px';
+    shopPanel.style.borderRadius = '5px';
+    shopPanel.style.fontFamily = 'Arial, sans-serif';
+    shopPanel.style.fontSize = '14px';
+    shopPanel.style.display = 'none';
+    shopPanel.style.zIndex = '1000';
+    shopPanel.style.pointerEvents = 'auto';
+    
+    // Shop title
+    const title = document.createElement('h2');
+    title.id = 'shop-title';
+    title.textContent = 'Town Shop';
+    shopPanel.appendChild(title);
+    
+    // Tabs
+    const tabsContainer = document.createElement('div');
+    tabsContainer.id = 'shop-tabs';
+    tabsContainer.style.display = 'flex';
+    tabsContainer.style.marginBottom = '15px';
+    tabsContainer.style.borderBottom = '1px solid #555';
+    
+    // Weapons tab
+    const weaponsTab = document.createElement('div');
+    weaponsTab.className = 'shop-tab active';
+    weaponsTab.dataset.tab = 'weapons';
+    weaponsTab.textContent = 'Weapons';
+    weaponsTab.style.padding = '8px 15px';
+    weaponsTab.style.marginRight = '5px';
+    weaponsTab.style.cursor = 'pointer';
+    weaponsTab.style.borderTopLeftRadius = '5px';
+    weaponsTab.style.borderTopRightRadius = '5px';
+    weaponsTab.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
+    weaponsTab.style.border = '1px solid #555';
+    weaponsTab.style.borderBottom = 'none';
+    tabsContainer.appendChild(weaponsTab);
+    
+    // Armor tab
+    const armorTab = document.createElement('div');
+    armorTab.className = 'shop-tab';
+    armorTab.dataset.tab = 'armor';
+    armorTab.textContent = 'Armor';
+    armorTab.style.padding = '8px 15px';
+    armorTab.style.marginRight = '5px';
+    armorTab.style.cursor = 'pointer';
+    armorTab.style.borderTopLeftRadius = '5px';
+    armorTab.style.borderTopRightRadius = '5px';
+    tabsContainer.appendChild(armorTab);
+    
+    // Consumables tab
+    const consumablesTab = document.createElement('div');
+    consumablesTab.className = 'shop-tab';
+    consumablesTab.dataset.tab = 'consumables';
+    consumablesTab.textContent = 'Consumables';
+    consumablesTab.style.padding = '8px 15px';
+    consumablesTab.style.marginRight = '5px';
+    consumablesTab.style.cursor = 'pointer';
+    consumablesTab.style.borderTopLeftRadius = '5px';
+    consumablesTab.style.borderTopRightRadius = '5px';
+    tabsContainer.appendChild(consumablesTab);
+    
+    shopPanel.appendChild(tabsContainer);
+    
+    // Weapons content
+    const weaponsContent = document.createElement('div');
+    weaponsContent.id = 'weapons-tab';
+    weaponsContent.className = 'shop-content active';
+    weaponsContent.style.display = 'block';
+    weaponsContent.style.height = '320px';
+    weaponsContent.style.overflowY = 'auto';
+    shopPanel.appendChild(weaponsContent);
+    
+    // Armor content
+    const armorContent = document.createElement('div');
+    armorContent.id = 'armor-tab';
+    armorContent.className = 'shop-content';
+    armorContent.style.display = 'none';
+    armorContent.style.height = '320px';
+    armorContent.style.overflowY = 'auto';
+    shopPanel.appendChild(armorContent);
+    
+    // Consumables content
+    const consumablesContent = document.createElement('div');
+    consumablesContent.id = 'consumables-tab';
+    consumablesContent.className = 'shop-content';
+    consumablesContent.style.display = 'none';
+    consumablesContent.style.height = '320px';
+    consumablesContent.style.overflowY = 'auto';
+    shopPanel.appendChild(consumablesContent);
+    
+    // Close button
+    const closeButton = document.createElement('button');
+    closeButton.id = 'close-shop';
+    closeButton.textContent = 'X';
+    closeButton.style.position = 'absolute';
+    closeButton.style.top = '10px';
+    closeButton.style.right = '10px';
+    closeButton.style.padding = '5px 10px';
+    closeButton.style.border = 'none';
+    closeButton.style.borderRadius = '3px';
+    closeButton.style.backgroundColor = '#555';
+    closeButton.style.color = 'white';
+    closeButton.style.cursor = 'pointer';
+    shopPanel.appendChild(closeButton);
+    
+    // Add to UI
+    this.uiContainer.appendChild(shopPanel);
+    
+    // Add event listeners for tabs
+    weaponsTab.addEventListener('click', () => {
+      this.switchShopTab('weapons');
+    });
+    
+    armorTab.addEventListener('click', () => {
+      this.switchShopTab('armor');
+    });
+    
+    consumablesTab.addEventListener('click', () => {
+      this.switchShopTab('consumables');
+    });
+    
+    // Add event listener for close button
+    closeButton.addEventListener('click', () => {
+      shopPanel.style.display = 'none';
+    });
+  }
+  
+  switchShopTab(tabName) {
+    // Get all tabs and content
+    const tabs = document.querySelectorAll('.shop-tab');
+    const contents = document.querySelectorAll('.shop-content');
+    
+    // Remove active class from all tabs and hide all content
+    tabs.forEach(tab => tab.classList.remove('active'));
+    contents.forEach(content => content.style.display = 'none');
+    
+    // Add active class to selected tab and show corresponding content
+    document.querySelector(`.shop-tab[data-tab="${tabName}"]`).classList.add('active');
+    document.getElementById(`${tabName}-tab`).style.display = 'block';
+  }
+  
+  // Method to update player stats in UI
+  updatePlayerStats(player, retries = 10) {
+    const missingElements = [];
+    
+    if (!this.healthBar) missingElements.push("healthBar");
+    if (!this.expBar) missingElements.push("expBar");
+    if (!this.goldDisplay) missingElements.push("goldDisplay");
+
+    if (missingElements.length > 0) {
+        if (retries <= 0) {
+            console.error(`GameUI: UI elements STILL not ready after 10 retries. Stopping. Missing: ${missingElements.join(", ")}`);
+            return;
         }
-        
-        this.regionInfo.innerHTML = infoText;
-        this.regionInfo.style.opacity = '1';
-        
-        // Add system chat message
-        this.addChatMessage('', `Entering ${region.name}`, 'system');
-      } else {
-        // Hide the region info when not in any region
-        this.regionInfo.style.opacity = '0';
-      }
+
+        console.warn(`GameUI: UI elements not yet initialized. Retrying in 50ms... (${retries} retries left). Missing: ${missingElements.join(", ")}`);
+
+        setTimeout(() => this.updatePlayerStats(player, retries - 1), 50);
+        return;
     }
-  }
-  
-  updatePlayerStats(player) {
+
+    console.log("GameUI: Updating player stats...");
+
     // Update health display
     const healthPercent = (player.health / player.maxHealth) * 100;
     this.healthBar.style.width = healthPercent + '%';
-    this.healthText.textContent = `${player.health} / ${player.maxHealth}`;
-    
-    // Change health bar color based on health
+    this.healthBar.textContent = `${player.health} / ${player.maxHealth}`;
+
     if (healthPercent > 60) {
-      this.healthBar.style.backgroundColor = '#00cc00'; // Green
+        this.healthBar.style.backgroundColor = '#00cc00';
     } else if (healthPercent > 30) {
-      this.healthBar.style.backgroundColor = '#ffcc00'; // Yellow
+        this.healthBar.style.backgroundColor = '#ffcc00';
     } else {
-      this.healthBar.style.backgroundColor = '#cc0000'; // Red
+        this.healthBar.style.backgroundColor = '#cc0000';
     }
-    
+
     // Update XP display
     const xpPercent = (player.experience / player.experienceToNextLevel) * 100;
     this.expBar.style.width = xpPercent + '%';
-    this.expText.textContent = `Level ${player.level} - ${player.experience} / ${player.experienceToNextLevel} XP`;
-    
+    this.expBar.textContent = `Level ${player.level} - ${player.experience} / ${player.experienceToNextLevel} XP`;
+
     // Update gold display
-    const goldDisplay = document.getElementById('gold-display');
-    if (goldDisplay) {
-      goldDisplay.textContent = player.gold;
-    }
-    
-    // Store player stats
-    this.playerStats = {
-      level: player.level,
-      health: player.health,
-      maxHealth: player.maxHealth,
-      experience: player.experience,
-      experienceToNextLevel: player.experienceToNextLevel,
-      gold: player.gold
-    };
-  }
+    this.goldDisplay.textContent = player.gold;
+}
   
-  addCombatMessage(message) {
-    const msgElement = document.createElement('div');
-    msgElement.textContent = message;
-    msgElement.style.marginBottom = '3px';
-    
-    // Add to combat log
-    this.combatLog.appendChild(msgElement);
-    this.combatLog.scrollTop = this.combatLog.scrollHeight;
-    
-    // Also add to chat with combat type
-    this.addChatMessage('', message, 'combat');
-  }
-  
-  showLevelUp(level, stats) {
-    this.levelUpNotif.innerHTML = `
-      <h2>Level Up!</h2>
-      <p>You are now level ${level}</p>
-      <div>Health: ${stats.maxHealth}</div>
-      <div>Attack: ${stats.attackDamage}</div>
-      <div>Defense: ${stats.defense}</div>
-    `;
-    
-    this.levelUpNotif.style.display = 'block';
-    
-    // Hide after 3 seconds
-    setTimeout(() => {
-      this.levelUpNotif.style.display = 'none';
-    }, 3000);
-    
-    // Add system message
-    this.addChatMessage('', `You have reached level ${level}!`, 'system');
-  }
-  
-  showDamageNumber(position, amount, type = 'damage', camera) {
-    // Create damage number element
-    const damageNumber = document.createElement('div');
-    damageNumber.style.position = 'absolute';
-    damageNumber.style.fontFamily = 'Arial, sans-serif';
-    damageNumber.style.fontWeight = 'bold';
-    damageNumber.style.fontSize = '16px';
-    damageNumber.style.textShadow = '2px 2px 0 #000';
-    damageNumber.style.pointerEvents = 'none';
-    
-    // Set text based on type
-    if (type === 'damage') {
-      damageNumber.textContent = `-${amount}`;
-      damageNumber.style.color = '#ff6666';
-    } else if (type === 'heal') {
-      damageNumber.textContent = `+${amount}`;
-      damageNumber.style.color = '#66ff66';
-    } else if (type === 'xp') {
-      damageNumber.textContent = `+${amount} XP`;
-      damageNumber.style.color = '#9933ff';
-    } else if (type === 'gold') {
-      damageNumber.textContent = `+${amount} gold`;
-      damageNumber.style.color = '#ffcc00';
-    }
-    
-    // Convert 3D position to screen position
-    const screenPos = this.worldToScreen(position, camera);
-    damageNumber.style.left = screenPos.x + 'px';
-    damageNumber.style.top = screenPos.y + 'px';
-    
-    // Add to UI
-    this.uiContainer.appendChild(damageNumber);
-    
-    // Animate and remove
-    setTimeout(() => {
-      damageNumber.style.transition = 'all 1s ease-out';
-      damageNumber.style.opacity = '0';
-      damageNumber.style.transform = 'translateY(-30px)';
-      
-      setTimeout(() => {
-        if (damageNumber.parentNode) {
-          damageNumber.parentNode.removeChild(damageNumber);
-        }
-      }, 1000);
-    }, 10);
-  }
-  
-  worldToScreen(position, camera) {
-    const vector = new THREE.Vector3();
-    vector.copy(position);
-    
-    vector.project(camera);
-    
-    return {
-      x: (vector.x * 0.5 + 0.5) * window.innerWidth,
-      y: (-vector.y * 0.5 + 0.5) * window.innerHeight
-    };
-  }
-  
-  toggleInventory(inventory, gold) {
-    const inventoryPanel = document.getElementById('inventory-panel');
-    
-    if (inventoryPanel.style.display === 'block') {
-      inventoryPanel.style.display = 'none';
-    } else {
-      // Update inventory contents before showing
-      this.updateInventory(inventory);
-      
-      // Update gold display
-      const goldDisplay = document.getElementById('gold-display');
-      if (goldDisplay) {
-        goldDisplay.textContent = gold;
-      }
-      
-      // Show inventory
-      inventoryPanel.style.display = 'block';
-      
-      // Set up tab switching
-      const tabs = inventoryPanel.querySelectorAll('.inventory-tab');
-      tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-          // Deactivate all tabs
-          tabs.forEach(t => t.classList.remove('active'));
-          
-          // Activate clicked tab
-          tab.classList.add('active');
-          
-          // Hide all content sections
-          const contentSections = inventoryPanel.querySelectorAll('.inventory-content');
-          contentSections.forEach(section => section.classList.remove('active'));
-          
-          // Show corresponding content
-          const tabName = tab.getAttribute('data-tab');
-          document.getElementById(`${tabName}-tab`).classList.add('active');
-        });
-      });
-      
-      // Set up close button
-      const closeButton = document.getElementById('close-inventory');
-      closeButton.addEventListener('click', () => {
-        inventoryPanel.style.display = 'none';
-      });
-    }
-  }
-  
-  updateInventory(inventory) {
-    // Update equipment tab
-    const equipmentTab = document.getElementById('equipment-tab');
-    equipmentTab.innerHTML = '';
-    
-    if (inventory.equipment.length === 0) {
-      equipmentTab.innerHTML = '<div class="empty-message">No equipment items in inventory</div>';
-    } else {
-      inventory.equipment.forEach(item => {
-        const itemElement = document.createElement('div');
-        itemElement.className = `inventory-item item-${item.rarity}`;
-        
-        const statsText = Object.entries(item.stats)
-          .map(([stat, value]) => `${this.formatStatName(stat)}: +${value}`)
-          .join(', ');
-        
-        itemElement.innerHTML = `
-          <div class="item-name">${item.name} (Level ${item.level})</div>
-          <div class="item-stats">${statsText}</div>
-          <div class="item-action">
-            <button class="equip-btn" data-item-id="${item.id}" data-item-name="${item.name}">Equip</button>
-            <button class="sell-btn" data-item-id="${item.id}" data-type="equipment" data-price="${this.calculateSellPrice(item)}">Sell (${this.calculateSellPrice(item)}g)</button>
-          </div>
-        `;
-        
-        equipmentTab.appendChild(itemElement);
-        
-        // Add event listeners
-        const equipBtn = itemElement.querySelector('.equip-btn');
-        equipBtn.addEventListener('click', () => {
-          document.dispatchEvent(new CustomEvent('equip-item', {
-            detail: {
-              itemId: item.id,
-              itemName: item.name
-            }
-          }));
-        });
-        
-        const sellBtn = itemElement.querySelector('.sell-btn');
-        sellBtn.addEventListener('click', () => {
-          document.dispatchEvent(new CustomEvent('sell-item', {
-            detail: {
-              itemId: item.id,
-              type: 'equipment',
-              price: this.calculateSellPrice(item)
-            }
-          }));
-        });
-      });
-    }
-    
-    // Update consumables tab
-    const consumablesTab = document.getElementById('consumables-tab');
-    consumablesTab.innerHTML = '';
-    
-    if (inventory.consumables.length === 0) {
-      consumablesTab.innerHTML = '<div class="empty-message">No consumable items in inventory</div>';
-    } else {
-      inventory.consumables.forEach(item => {
-        const itemElement = document.createElement('div');
-        itemElement.className = `inventory-item item-${item.rarity}`;
-        
-        let effectsText = '';
-        if (item.effects) {
-          if (item.effects.health) {
-            effectsText += `Restores ${item.effects.health} health. `;
-          }
-          if (item.effects.buff) {
-            const buff = item.effects.buff;
-            effectsText += 'Grants buff: ';
-            if (buff.stats.attackDamage) effectsText += `+${buff.stats.attackDamage} Attack, `;
-            if (buff.stats.defense) effectsText += `+${buff.stats.defense} Defense, `;
-            if (buff.stats.maxHealth) effectsText += `+${buff.stats.maxHealth} Max Health, `;
-            effectsText = effectsText.replace(/, $/, '') + ` for ${buff.duration/1000}s.`;
-          }
-        }
-        
-        itemElement.innerHTML = `
-          <div class="item-name">${item.name}</div>
-          <div class="item-stats">${effectsText}</div>
-          <div class="item-action">
-            <button class="use-btn" data-item-id="${item.id}">Use</button>
-            <button class="sell-btn" data-item-id="${item.id}" data-type="consumable" data-price="${this.calculateSellPrice(item)}">Sell (${this.calculateSellPrice(item)}g)</button>
-          </div>
-        `;
-        
-        consumablesTab.appendChild(itemElement);
-        
-        // Add event listeners
-        const useBtn = itemElement.querySelector('.use-btn');
-        useBtn.addEventListener('click', () => {
-          document.dispatchEvent(new CustomEvent('use-item', {
-            detail: {
-              itemId: item.id
-            }
-          }));
-        });
-        
-        const sellBtn = itemElement.querySelector('.sell-btn');
-        sellBtn.addEventListener('click', () => {
-          document.dispatchEvent(new CustomEvent('sell-item', {
-            detail: {
-              itemId: item.id,
-              type: 'consumable',
-              price: this.calculateSellPrice(item)
-            }
-          }));
-        });
-      });
-    }
-  }
-  
-  calculateSellPrice(item) {
-    // Base price depends on rarity
-    let basePrice = 5; // common
-    if (item.rarity === 'rare') basePrice = 20;
-    if (item.rarity === 'epic') basePrice = 50;
-    
-    // Adjust for level
-    if (item.level) {
-      basePrice += item.level * 2;
-    }
-    
-    return basePrice;
-  }
-  
-  formatStatName(stat) {
-    switch(stat) {
-      case 'attackDamage': return 'Attack';
-      case 'defense': return 'Defense';
-      case 'maxHealth': return 'Max Health';
-      default: return stat.charAt(0).toUpperCase() + stat.slice(1);
-    }
-  }
-  
+  // Method to toggle shop visibility
   toggleShop(gold) {
     const shopPanel = document.getElementById('shop-panel');
     
@@ -878,38 +725,17 @@ export class GameUI {
       
       // Show shop
       shopPanel.style.display = 'block';
-      
-      // Set up tab switching
-      const tabs = shopPanel.querySelectorAll('.shop-tab');
-      tabs.forEach(tab => {
-        tab.addEventListener('click', () => {
-          // Deactivate all tabs
-          tabs.forEach(t => t.classList.remove('active'));
-          
-          // Activate clicked tab
-          tab.classList.add('active');
-          
-          // Hide all content sections
-          const contentSections = shopPanel.querySelectorAll('.shop-content');
-          contentSections.forEach(section => section.classList.remove('active'));
-          
-          // Show corresponding content
-          const tabName = tab.getAttribute('data-tab');
-          document.getElementById(`${tabName}-tab`).classList.add('active');
-        });
-      });
-      
-      // Set up close button
-      const closeButton = document.getElementById('close-shop');
-      closeButton.addEventListener('click', () => {
-        shopPanel.style.display = 'none';
-      });
     }
   }
   
+  // Method to update shop contents
   updateShop(gold) {
-    // Update shop title
-    document.getElementById('shop-title').textContent = 'Town Shop';
+    // Update shop title based on current region
+    if (this.currentRegion && this.currentRegion.name === 'Tavern') {
+      document.getElementById('shop-title').textContent = 'Magic Tavern';
+    } else {
+      document.getElementById('shop-title').textContent = 'Town Shop';
+    }
     
     // Generate shop inventory
     const shopItems = this.generateShopItems();
@@ -960,6 +786,7 @@ export class GameUI {
     this.addShopItem(consumablesTab, beerItem, gold, true);
   }
   
+  // Method to add an item to the shop
   addShopItem(container, item, playerGold, isBeer = false) {
     const itemElement = document.createElement('div');
     itemElement.className = `shop-item item-${item.item.rarity}`;
@@ -1009,6 +836,7 @@ export class GameUI {
     });
   }
   
+  // Method to generate shop items
   generateShopItems() {
     // Generate a selection of items for the shop
     return {
@@ -1138,10 +966,7 @@ export class GameUI {
     };
   }
   
-  capitalizeFirstLetter(string) {
-    return string.charAt(0).toUpperCase() + string.slice(1);
-  }
-  
+  // Method to add a status effect
   addStatusEffect(effectId, icon, duration, name) {
     // If already active, just reset duration
     if (this.activeEffects[effectId]) {
@@ -1199,52 +1024,336 @@ export class GameUI {
       endTime,
       timeout
     };
-    
-    // Start update interval if not already running
-    if (!this.effectUpdateInterval) {
-      this.effectUpdateInterval = setInterval(() => {
-        this.updateStatusEffects();
-      }, 1000);
-    }
   }
   
+  // Method to remove a status effect
   removeStatusEffect(effectId) {
     if (this.activeEffects[effectId]) {
       this.statusContainer.removeChild(this.activeEffects[effectId].element);
       clearTimeout(this.activeEffects[effectId].timeout);
       delete this.activeEffects[effectId];
+    }
+  }
+  
+  // Method to show region info
+  showRegionInfo(region) {
+    if (region !== this.currentRegion) {
+      this.currentRegion = region;
       
-      // Stop interval if no effects are active
-      if (Object.keys(this.activeEffects).length === 0) {
-        clearInterval(this.effectUpdateInterval);
-        this.effectUpdateInterval = null;
+      if (region) {
+        // Update region info display
+        let infoText = `<h3>${region.name}</h3>`;
+        
+        if (region.type === 'safe') {
+          infoText += '<p>Safe Zone</p>';
+        } else if (region.type === 'combat') {
+          infoText += `<p>Enemy Level: ${region.enemyLevel}</p>`;
+          infoText += `<p>Enemy Type: ${this.capitalizeFirstLetter(region.enemyType)}</p>`;
+        }
+        
+        this.regionInfo.innerHTML = infoText;
+        this.regionInfo.style.opacity = '1';
+        
+        // Add system chat message
+        this.addChatMessage('', `Entering ${region.name}`, 'system');
+      } else {
+        // Hide the region info when not in any region
+        this.regionInfo.style.opacity = '0';
       }
     }
   }
   
-  updateStatusEffects() {
-    const now = Date.now();
+  // Helper method to capitalize first letter
+  capitalizeFirstLetter(string) {
+    return string.charAt(0).toUpperCase() + string.slice(1);
+  }
+  
+  // Method to add a combat message
+  addCombatMessage(message) {
+    const msgElement = document.createElement('div');
+    msgElement.innerHTML = message;
+    msgElement.style.marginBottom = '3px';
     
-    for (const effectId in this.activeEffects) {
-      const effect = this.activeEffects[effectId];
-      const remaining = Math.max(0, Math.ceil((effect.endTime - now) / 1000));
-      effect.element.querySelector('.duration').textContent = remaining + 's';
+    // Add to combat log
+    this.combatLog.appendChild(msgElement);
+    this.combatLog.scrollTop = this.combatLog.scrollHeight;
+    
+    // Also add to chat with combat type
+    this.addChatMessage('', message, 'combat');
+  }
+  
+  // Method to show level up notification
+  showLevelUp(level, stats) {
+    this.levelUpNotif.innerHTML = `
+      <h2>Level Up!</h2>
+      <p>You are now level ${level}</p>
+      <div>Health: ${stats.maxHealth}</div>
+      <div>Attack: ${stats.attackDamage}</div>
+      <div>Defense: ${stats.defense}</div>
+    `;
+    
+    this.levelUpNotif.style.display = 'block';
+    
+    // Hide after 3 seconds
+    setTimeout(() => {
+      this.levelUpNotif.style.display = 'none';
+    }, 3000);
+    
+    // Add system message
+    this.addChatMessage('', `You have reached level ${level}!`, 'system');
+  }
+  
+  // Method to show damage numbers
+  showDamageNumber(position, amount, type = 'damage', camera) {
+    // Create damage number element
+    const damageNumber = document.createElement('div');
+    damageNumber.style.position = 'absolute';
+    damageNumber.style.fontFamily = 'Arial, sans-serif';
+    damageNumber.style.fontWeight = 'bold';
+    damageNumber.style.fontSize = '16px';
+    damageNumber.style.textShadow = '2px 2px 0 #000';
+    damageNumber.style.pointerEvents = 'none';
+    
+    // Set text based on type
+    if (type === 'damage') {
+      damageNumber.textContent = `-${amount}`;
+      damageNumber.style.color = '#ff6666';
+    } else if (type === 'heal') {
+      damageNumber.textContent = `+${amount}`;
+      damageNumber.style.color = '#66ff66';
+    } else if (type === 'xp') {
+      damageNumber.textContent = `+${amount} XP`;
+      damageNumber.style.color = '#9933ff';
+    } else if (type === 'gold') {
+      damageNumber.textContent = `+${amount} gold`;
+      damageNumber.style.color = '#ffcc00';
+    }
+    
+    // Convert 3D position to screen position
+    const screenPos = this.worldToScreen(position, camera);
+    damageNumber.style.left = screenPos.x + 'px';
+    damageNumber.style.top = screenPos.y + 'px';
+    
+    // Add to UI
+    this.uiContainer.appendChild(damageNumber);
+    
+    // Animate and remove
+    setTimeout(() => {
+      damageNumber.style.transition = 'all 1s ease-out';
+      damageNumber.style.opacity = '0';
+      damageNumber.style.transform = 'translateY(-30px)';
+      
+      setTimeout(() => {
+        if (damageNumber.parentNode) {
+          damageNumber.parentNode.removeChild(damageNumber);
+        }
+      }, 1000);
+    }, 10);
+  }
+  
+  // Method to convert world position to screen position
+  worldToScreen(position, camera) {
+    const vector = new THREE.Vector3();
+    vector.copy(position);
+    
+    vector.project(camera);
+    
+    return {
+      x: (vector.x * 0.5 + 0.5) * window.innerWidth,
+      y: (-vector.y * 0.5 + 0.5) * window.innerHeight
+    };
+  }
+  
+  // Method to toggle inventory visibility
+  toggleInventory(inventory, gold) {
+    const inventoryPanel = document.getElementById('inventory-panel');
+    
+    if (inventoryPanel.style.display === 'block') {
+      inventoryPanel.style.display = 'none';
+    } else {
+      // Update inventory contents before showing
+      this.updateInventory(inventory);
+      
+      // Update gold display
+      const goldDisplay = document.getElementById('gold-display');
+      if (goldDisplay) {
+        goldDisplay.textContent = gold;
+      }
+      
+      // Show inventory
+      inventoryPanel.style.display = 'block';
     }
   }
   
+  // Method to update inventory contents
+  updateInventory(inventory) {
+    // Update equipment tab
+    const equipmentTab = document.getElementById('equipment-tab');
+    equipmentTab.innerHTML = '';
+    
+    if (inventory.equipment.length === 0) {
+      equipmentTab.innerHTML = '<div class="empty-message">No equipment items in inventory</div>';
+    } else {
+      inventory.equipment.forEach(item => {
+        const itemElement = document.createElement('div');
+        itemElement.className = `inventory-item item-${item.rarity}`;
+        
+        const statsText = Object.entries(item.stats)
+          .map(([stat, value]) => `${this.formatStatName(stat)}: +${value}`)
+          .join(', ');
+        
+        itemElement.innerHTML = `
+          <div class="item-name">${item.name} (Level ${item.level})</div>
+          <div class="item-stats">${statsText}</div>
+          <div class="item-action">
+            <button class="equip-btn" data-item-id="${item.id}" data-item-name="${item.name}">Equip</button>
+            <button class="sell-btn" data-item-id="${item.id}" data-type="equipment" data-price="${this.calculateSellPrice(item)}">Sell (${this.calculateSellPrice(item)}g)</button>
+          </div>
+        `;
+        
+        equipmentTab.appendChild(itemElement);
+        
+        // Add event listeners
+        const equipBtn = itemElement.querySelector('.equip-btn');
+        equipBtn.addEventListener('click', () => {
+          document.dispatchEvent(new CustomEvent('equip-item', {
+            detail: {
+              itemId: item.id,
+              itemName: item.name
+            }
+          }));
+        });
+        
+        const sellBtn = itemElement.querySelector('.sell-btn');
+        sellBtn.addEventListener('click', () => {
+          document.dispatchEvent(new CustomEvent('sell-item', {
+            detail: {
+              itemId: item.id,
+              type: 'equipment',
+              price: this.calculateSellPrice(item)
+            }
+          }));
+        });
+      });
+    }
+    
+    // Update consumables tab
+    const consumablesTab = document.getElementById('consumables-tab');
+    consumablesTab.innerHTML = '';
+    
+    if (inventory.consumables.length === 0) {
+      consumablesTab.innerHTML = '<div class="empty-message">No consumable items in inventory</div>';
+    } else {
+      inventory.consumables.forEach(item => {
+        const itemElement = document.createElement('div');
+        itemElement.className = `inventory-item item-${item.rarity}`;
+        
+        let effectsText = '';
+        if (item.effects) {
+          if (item.effects.health) {
+            effectsText += `Restores ${item.effects.health} health. `;
+          }
+          if (item.effects.buff) {
+            const buff = item.effects.buff;
+            effectsText += 'Grants buff: ';
+            if (buff.stats.attackDamage) effectsText += `+${buff.stats.attackDamage} Attack, `;
+            if (buff.stats.defense) effectsText += `+${buff.stats.defense} Defense, `;
+            if (buff.stats.maxHealth) effectsText += `+${buff.stats.maxHealth} Max Health, `;
+            effectsText = effectsText.replace(/, $/, '') + ` for ${buff.duration/1000}s.`;
+          }
+        }
+        
+        itemElement.innerHTML = `
+          <div class="item-name">${item.name}</div>
+          <div class="item-stats">${effectsText}</div>
+          <div class="item-action">
+            <button class="use-btn" data-item-id="${item.id}">Use</button>
+            <button class="sell-btn" data-item-id="${item.id}" data-type="consumable" data-price="${this.calculateSellPrice(item)}">Sell (${this.calculateSellPrice(item)}g)</button>
+          </div>
+        `;
+        
+        consumablesTab.appendChild(itemElement);
+        
+        // Add event listeners
+        const useBtn = itemElement.querySelector('.use-btn');
+        useBtn.addEventListener('click', () => {
+          document.dispatchEvent(new CustomEvent('use-item', {
+            detail: {
+              itemId: item.id
+            }
+          }));
+        });
+        
+        const sellBtn = itemElement.querySelector('.sell-btn');
+        sellBtn.addEventListener('click', () => {
+          document.dispatchEvent(new CustomEvent('sell-item', {
+            detail: {
+              itemId: item.id,
+              type: 'consumable',
+              price: this.calculateSellPrice(item)
+            }
+          }));
+        });
+      });
+    }
+  }
+  
+  // Method to calculate sell price
+  calculateSellPrice(item) {
+    let basePrice = 0;
+    
+    if (item.type === 'equipment') {
+      // Equipment price based on level and rarity
+      basePrice = item.level * 10;
+      
+      if (item.rarity === 'rare') basePrice *= 2;
+      if (item.rarity === 'epic') basePrice *= 4;
+    } else {
+      // Consumable price based on effects
+      if (item.effects) {
+        if (item.effects.health) {
+          basePrice = Math.floor(item.effects.health / 10);
+        }
+        
+        if (item.effects.buff) {
+          const buff = item.effects.buff;
+          const statSum = (buff.stats.attackDamage || 0) + 
+                         (buff.stats.defense || 0) + 
+                         (buff.stats.maxHealth || 0) / 5;
+          
+          basePrice += Math.floor(statSum * buff.duration / 20000);
+        }
+      }
+    }
+    
+    // Sell price is 40% of base price
+    return Math.max(1, Math.floor(basePrice * 0.4));
+  }
+  
+  // Method to format stat name
+  formatStatName(stat) {
+    switch (stat) {
+      case 'attackDamage':
+        return 'Attack';
+      case 'defense':
+        return 'Defense';
+      case 'maxHealth':
+        return 'Max Health';
+      default:
+        return stat.replace(/([A-Z])/g, ' $1').replace(/^./, str => str.toUpperCase());
+    }
+  }
+  
+  // Cleanup method
   cleanup() {
+    // Remove UI elements
     if (this.uiContainer && this.uiContainer.parentNode) {
       this.uiContainer.parentNode.removeChild(this.uiContainer);
     }
     
-    // Clear any intervals
-    if (this.effectUpdateInterval) {
-      clearInterval(this.effectUpdateInterval);
-    }
-    
-    // Clear any timeouts in active effects
-    for (const effectId in this.activeEffects) {
-      clearTimeout(this.activeEffects[effectId].timeout);
+    // Clear all buff timeouts
+    for (const buffId in this.activeEffects) {
+      this.removeStatusEffect(buffId);
     }
   }
 }

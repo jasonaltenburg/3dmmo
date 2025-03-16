@@ -1,0 +1,69 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Keyboard Test</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            height: 100vh;
+            margin: 0;
+            background-color: #f0f0f0;
+        }
+        #key-display {
+            font-size: 24px;
+            margin-bottom: 20px;
+        }
+        #log {
+            width: 80%;
+            height: 200px;
+            border: 1px solid #ccc;
+            padding: 10px;
+            overflow-y: auto;
+            background-color: white;
+        }
+    </style>
+</head>
+<body>
+    <h1>Keyboard Event Test</h1>
+    <div id="key-display">Press any key</div>
+    <div id="log"></div>
+
+    <script>
+        const keyDisplay = document.getElementById('key-display');
+        const log = document.getElementById('log');
+
+        function logEvent(event) {
+            const message = `Event: ${event.type}, Key: ${event.key}, Code: ${event.code}, Time: ${new Date().toLocaleTimeString()}`;
+            console.log(message);
+            
+            const entry = document.createElement('div');
+            entry.textContent = message;
+            log.appendChild(entry);
+            log.scrollTop = log.scrollHeight;
+        }
+
+        window.addEventListener('keydown', (event) => {
+            keyDisplay.textContent = `Key pressed: ${event.key} (${event.code})`;
+            logEvent(event);
+        });
+
+        window.addEventListener('keyup', (event) => {
+            keyDisplay.textContent = `Key released: ${event.key} (${event.code})`;
+            logEvent(event);
+        });
+
+        // Log a message when the page loads
+        window.addEventListener('load', () => {
+            const entry = document.createElement('div');
+            entry.textContent = `Page loaded at ${new Date().toLocaleTimeString()}`;
+            log.appendChild(entry);
+        });
+    </script>
+</body>
+</html>

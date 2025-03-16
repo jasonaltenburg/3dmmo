@@ -1,5 +1,8 @@
-import * as THREE from '/lib/three/build/three.module.js';
-import { OrbitControls } from '/lib/three/examples/jsm/controls/OrbitControls.js';
+// Remove these imports since we're using the global THREE from CDN
+// import * as THREE from '/lib/three/build/three.module.js';
+// import { OrbitControls } from '/lib/three/examples/jsm/controls/OrbitControls.js';
+
+// Keep these imports as they are local to your project
 import { World } from './world/world.js';
 import { Player } from './entities/player.js';
 import { Enemy } from './entities/enemy.js';
@@ -95,7 +98,7 @@ export class GameManager {
   }
   
   setupControls() {
-    this.controls = new OrbitControls(this.camera, this.renderer.domElement);
+    this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
     this.controls.maxPolarAngle = Math.PI / 2 - 0.1; // Prevent going below ground
     this.controls.minDistance = 2;
     this.controls.maxDistance = 15;
@@ -120,9 +123,11 @@ export class GameManager {
   
   setupEventListeners() {
     // Keyboard events
-    window.addEventListener('keydown', (e) => {
+    this.keydownHandler = (e) => {
+      console.log('Key pressed:', e.code);
       if (this.keys.hasOwnProperty(e.code) && !this.chatActive) {
         this.keys[e.code] = true;
+        console.log('Key state updated:', e.code, this.keys[e.code]);
       }
       
       // Attack on space
@@ -133,6 +138,7 @@ export class GameManager {
       // Toggle camera mode with C key
       if (e.code === 'KeyC' && !this.chatActive) {
         this.toggleCameraMode();
+        console.log('Camera mode toggled to:', this.cameraMode);
       }
       
       // Open inventory with I key
@@ -140,23 +146,36 @@ export class GameManager {
         this.ui.toggleInventory(this.player.inventory, this.player.gold);
       }
       
-      // Open shop with B key when in town
-      if (e.code === 'KeyB' && !this.chatActive && this.activeRegion && this.activeRegion.name === 'Town') {
+      // Open shop with B key when in town or tavern
+      if (e.code === 'KeyB' && !this.chatActive && this.activeRegion && 
+          (this.activeRegion.name === 'Town' || this.activeRegion.name === 'Tavern')) {
+        console.log('Opening shop in region:', this.activeRegion.name);
         this.ui.toggleShop(this.player.gold);
       }
-    });
+    };
     
-    window.addEventListener('keyup', (e) => {
+    this.keyupHandler = (e) => {
       if (this.keys.hasOwnProperty(e.code)) {
         this.keys[e.code] = false;
       }
-    });
+    };
     
     // Window resize
-    window.addEventListener('resize', () => {
+    this.resizeHandler = () => {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
+    };
+    
+    // Add event listeners
+    console.log('Setting up keyboard event listeners');
+    window.addEventListener('keydown', this.keydownHandler);
+    window.addEventListener('keyup', this.keyupHandler);
+    window.addEventListener('resize', this.resizeHandler);
+    
+    // Test direct event handling
+    document.addEventListener('keydown', (e) => {
+      console.log('Document keydown event:', e.code);
     });
     
     // Chat events
@@ -233,16 +252,27 @@ export class GameManager {
         defense: 3
       };
       
-      // Apply buff
-      const buffInfo = this.player.addBuff(buffId, duration, stats);
-      
-      // Update UI
-      this.ui.updatePlayerStats(this.player);
-      this.ui.addStatusEffect(buffId, '🍺', duration, 'Beer: +5 Attack, +3 Defense');
-      this.ui.addCombatMessage('You feel stronger after drinking the beer! (+5 Attack, +3 Defense for 60 seconds)');
-      
-      // Spend gold
-      this.player.spendGold(5);
+      // Check if player has enough gold
+      if (this.player.gold >= 5) {
+        // Spend gold first
+        console.log('Spending 5 gold for beer');
+        const success = this.player.spendGold(5);
+        console.log('Gold spent successfully:', success, 'Remaining gold:', this.player.gold);
+        
+        if (success) {
+          // Apply buff
+          const buffInfo = this.player.addBuff(buffId, duration, stats);
+          
+          // Update UI
+          this.ui.updatePlayerStats(this.player);
+          this.ui.addStatusEffect(buffId, '🍺', duration, 'Beer: +5 Attack, +3 Defense');
+          this.ui.addCombatMessage('You feel stronger after drinking the beer! (+5 Attack, +3 Defense for 60 seconds)');
+        } else {
+          this.ui.addCombatMessage('Not enough gold to buy beer!', 'error');
+        }
+      } else {
+        this.ui.addCombatMessage('Not enough gold to buy beer!', 'error');
+      }
     });
     
     // Socket events
@@ -278,44 +308,65 @@ export class GameManager {
   }
   
   initializePlayer() {
-    // Create player entity
+    if (this.player) {
+        console.warn("GameManager: Player is already initialized. Skipping duplicate initialization.");
+        return;
+    }
+
+    console.log("GameManager: Initializing player...");
     this.player = new Player(this.scene, this.socket, this.socket.id);
-    
-    // Initial position at town center
+
+    if (!this.player) {
+        console.error("GameManager: Failed to initialize player!");
+        return;
+    }
+
+    console.log("GameManager: Player initialized successfully.", this.player);
+
+    // Place player at default spawn position
     this.player.model.position.set(0, 0, 0);
-    
-    // Set camera to follow player
+
+    // Ensure camera follows player
     this.controls.target.copy(this.player.model.position);
     this.controls.target.y = this.player.model.position.y + 1;
     this.controls.update();
-    
-    // Initialize UI
-    this.ui.updatePlayerStats(this.player);
-    
-    // Welcome message
-    this.ui.addChatMessage('', 'Welcome to 3D MMO! Press T to chat and Space to attack.', 'system');
-    
-    // Set initial region
-    this.checkRegion();
-  }
+
+    // Wait for UI to be ready before updating stats
+    setTimeout(() => {
+        console.log("GameManager: Updating UI with player stats...");
+        this.ui.updatePlayerStats(this.player);
+    }, 100);
+
+    // Ensure active region is set
+    setTimeout(() => this.checkRegion(), 200);
+}
+
+
   
   handleCurrentPlayers(players) {
+    console.log('Received players:', players);
     Object.keys(players).forEach((id) => {
-      if (id === this.socket.id) {
-        // Update our player position
-        if (this.player) {
-          this.player.model.position.x = players[id].x;
-          this.player.model.position.y = players[id].y;
-          this.player.model.position.z = players[id].z;
-          this.player.model.rotation.y = players[id].rotationY;
+        if (id === this.socket.id) {
+            // Ensure we don't create the player twice
+            if (!this.player) {
+                this.player = new Player(this.scene, this.socket, this.socket.id);
+                this.player.model.position.set(players[id].x, players[id].y, players[id].z);
+                this.player.model.rotation.y = players[id].rotationY;
+            }
+        } else {
+            this.addOtherPlayer(players[id]);
         }
-      } else {
-        this.addOtherPlayer(players[id]);
-      }
     });
-  }
+}
+
+
+
   
   addOtherPlayer(playerData) {
+    if (this.otherPlayers[playerData.id]) {
+      console.warn(`Player ${playerData.id} already exists, skipping duplicate creation.`);
+      return;
+  }
     // Create a simple representation of other players
     const geometry = new THREE.BoxGeometry(0.6, 1.7, 0.6);
     const material = new THREE.MeshStandardMaterial({ color: 0xff5555 });
@@ -423,28 +474,42 @@ export class GameManager {
   }
   
   checkRegion() {
-    if (!this.player) return;
-    
-    // Get the region at the player's position
-    const region = this.world.getRegionAtPosition(this.player.model.position);
-    
-    // Update UI with region info
-    this.ui.showRegionInfo(region);
-    
-    // Check if we entered a new region
-    if (region !== this.activeRegion) {
-      // Clear existing enemies when leaving a region
-      this.clearEnemies();
-      
-      // Set new active region
-      this.activeRegion = region;
-      
-      // Spawn enemies if entering a combat region
-      if (region && region.type === 'combat') {
-        this.spawnEnemies(region);
+    if (!this.world || typeof this.world.getRegionAtPosition !== "function") {
+      console.error("GameManager: World is not initialized or getRegionAtPosition() is missing.");
+      return;
+    }
+  
+    const playerPos = this.player?.model?.position;
+    if (!playerPos) {
+      console.warn("GameManager: Player position not available.");
+      return;
+    }
+  
+    const region = this.world.getRegionAtPosition(playerPos);
+    if (region) {
+      // If region changed
+      if (!this.activeRegion || this.activeRegion.name !== region.name) {
+        // If old region was combat, clear enemies
+        if (this.activeRegion && this.activeRegion.type === 'combat') {
+          this.clearEnemies();
+        }
+  
+        this.activeRegion = region;
+        console.log("GameManager: Player is in region:", region.name);
+        this.ui.showRegionInfo(region);
+  
+        // If new region is combat, spawn enemies
+        if (region.type === 'combat') {
+          this.spawnEnemies(region);
+        }
       }
+    } else {
+      console.warn("GameManager: Player is in an unknown area.");
     }
   }
+  
+
+
   
   spawnEnemies(region) {
     const enemyCount = Math.min(5, region.maxEnemies);
@@ -527,17 +592,23 @@ export class GameManager {
             if (result.drops) {
               // Add gold
               if (result.drops.gold > 0) {
-                this.player.addGold(result.drops.gold);
+                const goldAmount = result.drops.gold;
+                console.log('Adding gold to player:', goldAmount);
+                this.player.addGold(goldAmount);
+                console.log('Player gold after adding:', this.player.gold);
                 
                 // Show gold gain
                 this.ui.showDamageNumber(
                   enemy.model.position.clone().add(new THREE.Vector3(0, 2.3, 0)),
-                  result.drops.gold,
+                  goldAmount,
                   'gold',
                   this.camera
                 );
                 
-                this.ui.addCombatMessage(`Found ${result.drops.gold} gold.`);
+                this.ui.addCombatMessage(`Found ${goldAmount} gold.`);
+                
+                // Update UI with new gold amount
+                this.ui.updatePlayerStats(this.player);
               }
               
               // Add items to inventory
@@ -696,6 +767,7 @@ export class GameManager {
   }
   
   animate() {
+    console.log('animate() running');
     if (!this.gameActive) return;
     
     requestAnimationFrame(() => this.animate());
