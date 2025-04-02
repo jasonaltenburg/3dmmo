@@ -13,3 +13,8 @@
    - Add a `toggleShop()` or `openShop()` method in `GameUI` to show/hide the `#shop-panel`.
    - Fill it with sample items. On purchase, dispatch a `buy-item` event.
 
+4. **Log Levels**
+   - Add a dynamic parameter on server start that allows different levels of logging in the console (currently too many things are showing up)
+     
+5. **God Mode**
+  - Add a keybind to enable God Mode for debug purposes (flight, infinite health, laser eyes to kill a mob)
