@@ -11,6 +11,7 @@ An immersive multiplayer online RPG game built with Three.js, Socket.io, and Exp
   - **Cave** (East) - Face bats
   - **Field** (South) - Fight snakes
   - **Castle** (West) - Challenge vampires
+  - **Tavern** (NorthEast) - Visit the local Tavern
 
 ### Combat System
 - Real-time combat with different monster types
