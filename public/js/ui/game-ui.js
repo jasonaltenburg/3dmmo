@@ -97,6 +97,7 @@ export class GameUI {
     this.uiContainer.appendChild(this.combatLog);
 
     // Inventory Panel
+    /* -- Duplicate Inventory panel
     this.inventoryPanel = document.createElement('div');
     this.inventoryPanel.id = 'inventory-panel';
     this.inventoryPanel.style = "position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 600px; height: 400px; background: rgba(0,0,0,0.85); color: white; padding: 20px; border-radius: 5px; display: none;";
@@ -104,12 +105,13 @@ export class GameUI {
     this.uiContainer.appendChild(this.inventoryPanel);
 
     // Shop Panel
+    /* -- Duplicate shop panel
     this.shopPanel = document.createElement('div');
     this.shopPanel.id = 'shop-panel';
     this.shopPanel.style = "position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); width: 600px; height: 400px; background: rgba(0,0,0,0.85); color: white; padding: 20px; border-radius: 5px; display: none;";
     this.shopPanel.innerHTML = "<h2>Shop</h2>";
     this.uiContainer.appendChild(this.shopPanel);
-
+    */
     console.log("UI Created!");
   }
 
@@ -441,7 +443,7 @@ export class GameUI {
     // Consumables tab
     const consumablesTab = document.createElement('div');
     consumablesTab.className = 'inventory-tab';
-    consumablesTab.dataset.tab = 'consumables';
+    consumablesTab.dataset.tab = 'invconsumables';
     consumablesTab.textContent = 'Consumables';
     consumablesTab.style.padding = '8px 15px';
     consumablesTab.style.marginRight = '5px';
@@ -454,7 +456,7 @@ export class GameUI {
     
     // Equipment content
     const equipmentContent = document.createElement('div');
-    equipmentContent.id = 'equipment-tab';
+    equipmentContent.id = 'inventory-equipment-content';
     equipmentContent.className = 'inventory-content active';
     equipmentContent.style.display = 'block';
     equipmentContent.style.height = '320px';
@@ -463,7 +465,7 @@ export class GameUI {
     
     // Consumables content
     const consumablesContent = document.createElement('div');
-    consumablesContent.id = 'consumables-tab';
+    consumablesContent.id = 'inventory-invconsumables-content';
     consumablesContent.className = 'inventory-content';
     consumablesContent.style.display = 'none';
     consumablesContent.style.height = '320px';
@@ -494,7 +496,7 @@ export class GameUI {
     });
     
     consumablesTab.addEventListener('click', () => {
-      this.switchInventoryTab('consumables');
+      this.switchInventoryTab('invconsumables');
     });
     
     // Add event listener for close button
@@ -503,19 +505,33 @@ export class GameUI {
     });
   }
   
-  switchInventoryTab(tabName) {
-    // Get all tabs and content
-    const tabs = document.querySelectorAll('.inventory-tab');
-    const contents = document.querySelectorAll('.inventory-content');
-    
-    // Remove active class from all tabs and hide all content
-    tabs.forEach(tab => tab.classList.remove('active'));
-    contents.forEach(content => content.style.display = 'none');
-    
-    // Add active class to selected tab and show corresponding content
-    document.querySelector(`.inventory-tab[data-tab="${tabName}"]`).classList.add('active');
-    document.getElementById(`${tabName}-tab`).style.display = 'block';
+// No changes needed here if you implemented the previous fix
+switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
+  const tabs = document.querySelectorAll('.inventory-tab');
+  const contents = document.querySelectorAll('.inventory-content');
+
+  tabs.forEach(tab => tab.classList.remove('active'));
+  contents.forEach(content => content.style.display = 'none');
+
+  // Finds tab using data-tab="equipment" or data-tab="invconsumables"
+  const activeTab = document.querySelector(`.inventory-tab[data-tab="${tabName}"]`);
+  if (activeTab) {
+       activeTab.classList.add('active');
+       // Apply active styles... (optional based on previous step)
+  } else {
+      console.error(`Could not find inventory tab with data-tab="${tabName}"`);
+      return;
   }
+   // Reset inactive tab styles... (optional based on previous step)
+
+  // Constructs ID "inventory-equipment-content" or "inventory-invconsumables-content"
+  const contentToShow = document.getElementById(`inventory-${tabName}-content`);
+  if (contentToShow) {
+      contentToShow.style.display = 'block';
+  } else {
+      console.error(`Could not find inventory content with ID="inventory-${tabName}-content"`);
+  }
+}
   
   createShopPanel() {
     // Create shop panel
@@ -1188,7 +1204,7 @@ export class GameUI {
   // Method to update inventory contents
   updateInventory(inventory) {
     // Update equipment tab
-    const equipmentTab = document.getElementById('equipment-tab');
+    const equipmentTab = document.getElementById('inventory-equipment-content');
     equipmentTab.innerHTML = '';
     
     if (inventory.equipment.length === 0) {
@@ -1237,8 +1253,8 @@ export class GameUI {
       });
     }
     
-    // Update consumables tab
-    const consumablesTab = document.getElementById('consumables-tab');
+    // Update consumables content
+    const consumablesTab = document.getElementById('inventory-invconsumables-content');
     consumablesTab.innerHTML = '';
     
     if (inventory.consumables.length === 0) {

@@ -11,6 +11,12 @@ import { GameUI } from './ui/game-ui.js';
 export class GameManager {
   constructor(socket) {
     this.socket = socket;
+    this.debugEnabled = false;
+    this.debugLog = (...args) => {
+      if (this.debugEnabled) {
+        console.log(...args);
+      }
+    };
     this.scene = new THREE.Scene();
     this.setupRenderer();
     this.setupCamera();
@@ -124,10 +130,10 @@ export class GameManager {
   setupEventListeners() {
     // Keyboard events
     this.keydownHandler = (e) => {
-      console.log('Key pressed:', e.code);
+      this.debugLog('Key pressed:', e.code);
       if (this.keys.hasOwnProperty(e.code) && !this.chatActive) {
         this.keys[e.code] = true;
-        console.log('Key state updated:', e.code, this.keys[e.code]);
+        this.debugLog('Key state updated:', e.code, this.keys[e.code]);
       }
       
       // Attack on space
@@ -138,7 +144,7 @@ export class GameManager {
       // Toggle camera mode with C key
       if (e.code === 'KeyC' && !this.chatActive) {
         this.toggleCameraMode();
-        console.log('Camera mode toggled to:', this.cameraMode);
+        this.debugLog('Camera mode toggled to:', this.cameraMode);
       }
       
       // Open inventory with I key
@@ -149,7 +155,7 @@ export class GameManager {
       // Open shop with B key when in town or tavern
       if (e.code === 'KeyB' && !this.chatActive && this.activeRegion && 
           (this.activeRegion.name === 'Town' || this.activeRegion.name === 'Tavern')) {
-        console.log('Opening shop in region:', this.activeRegion.name);
+        this.debugLog('Opening shop in region:', this.activeRegion.name);
         this.ui.toggleShop(this.player.gold);
       }
     };
@@ -168,14 +174,14 @@ export class GameManager {
     };
     
     // Add event listeners
-    console.log('Setting up keyboard event listeners');
+    this.debugLog('Setting up keyboard event listeners');
     window.addEventListener('keydown', this.keydownHandler);
     window.addEventListener('keyup', this.keyupHandler);
     window.addEventListener('resize', this.resizeHandler);
     
     // Test direct event handling
     document.addEventListener('keydown', (e) => {
-      console.log('Document keydown event:', e.code);
+      this.debugLog('Document keydown event:', e.code);
     });
     
     // Chat events
@@ -255,9 +261,9 @@ export class GameManager {
       // Check if player has enough gold
       if (this.player.gold >= 5) {
         // Spend gold first
-        console.log('Spending 5 gold for beer');
+        this.debugLog('Spending 5 gold for beer');
         const success = this.player.spendGold(5);
-        console.log('Gold spent successfully:', success, 'Remaining gold:', this.player.gold);
+        this.debugLog('Gold spent successfully:', success, 'Remaining gold:', this.player.gold);
         
         if (success) {
           // Apply buff
@@ -274,7 +280,16 @@ export class GameManager {
         this.ui.addCombatMessage('Not enough gold to buy beer!', 'error');
       }
     });
-    
+
+    // Toggle debug mode with Ctrl+Shift+` (Backquote)
+    window.addEventListener('keydown', (e) => {
+    if (e.ctrlKey && e.shiftKey && e.code === 'Backquote') {
+      this.debugEnabled = !this.debugEnabled;
+      this.debugLog(`Debug mode ${this.debugEnabled ? 'enabled' : 'disabled'}`);
+      this.debugLog(`Debug mode ${this.debugEnabled ? 'enabled' : 'disabled'}`);
+    }
+    });
+
     // Socket events
     this.socket.on('connect', () => {
       this.initializePlayer();
@@ -313,7 +328,7 @@ export class GameManager {
         return;
     }
 
-    console.log("GameManager: Initializing player...");
+    this.debugLog("GameManager: Initializing player...");
     this.player = new Player(this.scene, this.socket, this.socket.id);
 
     if (!this.player) {
@@ -321,7 +336,7 @@ export class GameManager {
         return;
     }
 
-    console.log("GameManager: Player initialized successfully.", this.player);
+    this.debugLog("GameManager: Player initialized successfully.", this.player);
 
     // Place player at default spawn position
     this.player.model.position.set(0, 0, 0);
@@ -333,7 +348,7 @@ export class GameManager {
 
     // Wait for UI to be ready before updating stats
     setTimeout(() => {
-        console.log("GameManager: Updating UI with player stats...");
+        this.debugLog("GameManager: Updating UI with player stats...");
         this.ui.updatePlayerStats(this.player);
     }, 100);
 
@@ -344,7 +359,7 @@ export class GameManager {
 
   
   handleCurrentPlayers(players) {
-    console.log('Received players:', players);
+    this.debugLog('Received players:', players);
     Object.keys(players).forEach((id) => {
         if (id === this.socket.id) {
             // Ensure we don't create the player twice
@@ -495,7 +510,7 @@ export class GameManager {
         }
   
         this.activeRegion = region;
-        console.log("GameManager: Player is in region:", region.name);
+        this.debugLog("GameManager: Player is in region:", region.name);
         this.ui.showRegionInfo(region);
   
         // If new region is combat, spawn enemies
@@ -593,9 +608,9 @@ export class GameManager {
               // Add gold
               if (result.drops.gold > 0) {
                 const goldAmount = result.drops.gold;
-                console.log('Adding gold to player:', goldAmount);
+                this.debugLog('Adding gold to player:', goldAmount);
                 this.player.addGold(goldAmount);
-                console.log('Player gold after adding:', this.player.gold);
+                this.debugLog('Player gold after adding:', this.player.gold);
                 
                 // Show gold gain
                 this.ui.showDamageNumber(
@@ -767,7 +782,7 @@ export class GameManager {
   }
   
   animate() {
-    console.log('animate() running');
+    this.debugLog('animate() running');
     if (!this.gameActive) return;
     
     requestAnimationFrame(() => this.animate());
