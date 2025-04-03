@@ -1,20 +1,26 @@
 # Next Steps TODO
 
-1. **Implement Player Inventory Logic**
-   - Confirm or create a `Player.addItem(item)` method that sorts items into equipment vs consumables.
-   - Ensure `takeDamage()` or buff logic is consistent with items.
-   - Would like to start with an inventory and be able to sell and swap items.
+1. **Change Management**
+  - Patch Notes                                                                                               - Versions
+  - Version Control System?
 
-2. **Build Inventory UI**
-   - In `GameUI`, create an `updateInventory(inventory)` method that populates `#equipment-tab` and `#consumables-tab`.
-   - Consider adding event handlers (e.g. equip, consume, sell).
-
-3. **Shop Implementation**
-   - Add a `toggleShop()` or `openShop()` method in `GameUI` to show/hide the `#shop-panel`.
-   - Fill it with sample items. On purchase, dispatch a `buy-item` event.
-
-4. **Log Levels**
-   - Add a dynamic parameter on server start that allows different levels of logging in the console (currently too many things are showing up)
-     
-5. **God Mode**
+2. **God Mode**
   - Add a keybind to enable God Mode for debug purposes (flight, infinite health, laser eyes to kill a mob)
+
+3. **Jump Around**
+  - Add a jump command so that I can finally kill a bat
+
+4. **Glowing Things**
+  - I thought I implemented something to have glowing effects, I don't see any glowing
+
+5. **Buff Consistency**
+  - Implement buffs consistently and correctly
+  - Beer Doesn't count down properly
+  - Some items give buffs that are invisible
+
+6. **Equipment Matters**
+  - Make Equipment functional
+  - Make Equipment cosmetic
+  - Make MTX Equipment
+
+7. **Horse Armor**
