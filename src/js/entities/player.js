@@ -34,6 +34,13 @@ export class Player {
     this.attackCooldown = 0;
     this.maxAttackCooldown = 30; // frames (at 60fps = 0.5 seconds)
     
+    // Jump properties
+    this.isJumping = false;
+    this.jumpVelocity = 0;
+    this.jumpStrength = 0.3;
+    this.gravity = 0.015;
+    this.groundLevel = 0;
+    
     // Combat state
     this.inCombat = false;
     this.lastDamageTime = 0;
@@ -170,11 +177,41 @@ export class Player {
       // Face movement direction
       this.model.rotation.y = rotation;
     } else {
-      // Idle - reset limbs
-      this.leftLeg.rotation.x = 0;
-      this.rightLeg.rotation.x = 0;
-      this.leftArm.rotation.x = 0;
-      this.rightArm.rotation.x = 0;
+      // Idle - reset limbs (only if not jumping)
+      if (!this.isJumping) {
+        this.leftLeg.rotation.x = 0;
+        this.rightLeg.rotation.x = 0;
+        this.leftArm.rotation.x = 0;
+        this.rightArm.rotation.x = 0;
+      }
+    }
+    
+    // Handle jumping
+    if (this.isJumping) {
+      // Apply jumping physics
+      this.model.position.y += this.jumpVelocity;
+      this.jumpVelocity -= this.gravity;
+      
+      // Jump animation - raise arms and tuck legs
+      this.leftArm.rotation.x = -Math.PI / 4;
+      this.rightArm.rotation.x = -Math.PI / 4;
+      this.leftLeg.rotation.x = Math.PI / 8;
+      this.rightLeg.rotation.x = Math.PI / 8;
+      
+      // Check if landed
+      if (this.model.position.y <= this.groundLevel) {
+        this.model.position.y = this.groundLevel; // Ensure we don't go below ground
+        this.isJumping = false;
+        this.jumpVelocity = 0;
+        
+        // Reset limbs after landing
+        if (direction.length() === 0) {
+          this.leftLeg.rotation.x = 0;
+          this.rightLeg.rotation.x = 0;
+          this.leftArm.rotation.x = 0;
+          this.rightArm.rotation.x = 0;
+        }
+      }
     }
     
     // Update attack cooldown
@@ -257,6 +294,16 @@ export class Player {
       };
     }
     return null;
+  }
+  
+  jump() {
+    // Only allow jumping if we're on the ground
+    if (!this.isJumping && this.model.position.y <= this.groundLevel) {
+      this.isJumping = true;
+      this.jumpVelocity = this.jumpStrength;
+      return true;
+    }
+    return false;
   }
   
   takeDamage(amount) {

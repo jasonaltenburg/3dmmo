@@ -42,7 +42,8 @@ export class GameManager {
       KeyA: false,
       KeyS: false,
       KeyD: false,
-      Space: false
+      Space: false,
+      KeyJ: false
     };
     
     // Game state
@@ -156,6 +157,11 @@ export class GameManager {
           (this.activeRegion.name === 'Town' || this.activeRegion.name === 'Tavern')) {
         this.debugLog('Opening shop in region:', this.activeRegion.name);
         this.ui.toggleShop(this.player.gold);
+      }
+      
+      // Jump with J key
+      if (e.code === 'KeyJ' && !this.chatActive) {
+        this.playerJump();
       }
     };
     
@@ -549,6 +555,17 @@ export class GameManager {
     this.enemies = [];
   }
   
+  playerJump() {
+    if (!this.player) return;
+    
+    const result = this.player.jump();
+    if (result) {
+      this.debugLog('Player jumped');
+      // Optionally add a UI message
+      this.ui.addCombatMessage('You jumped!');
+    }
+  }
+
   playerAttack() {
     if (!this.player) return;
     
