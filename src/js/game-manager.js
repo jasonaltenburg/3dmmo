@@ -32,6 +32,10 @@ export class GameManager {
     // Set up UI
     this.ui = new GameUI();
     
+    // Make game manager accessible to UI
+    // (needed for mobile controls to access player info)
+    window.gameManager = this;
+    
     // Initialize player
     this.player = null;
     this.otherPlayers = {};
@@ -1200,27 +1204,44 @@ export class GameManager {
     // Update controls for smooth camera movement
     this.controls.update();
     
-    // Update player position based on keyboard input
+    // Update player position based on keyboard input or mobile controls
     if (this.player && !this.chatActive) {
       // Calculate movement direction vector
       const direction = new THREE.Vector3();
       const rotation = this.controls.getAzimuthalAngle();
       
-      if (this.keys.KeyW) {
-        direction.z -= Math.cos(rotation) * this.player.speed;
-        direction.x -= Math.sin(rotation) * this.player.speed;
-      }
-      if (this.keys.KeyS) {
-        direction.z += Math.cos(rotation) * this.player.speed;
-        direction.x += Math.sin(rotation) * this.player.speed;
-      }
-      if (this.keys.KeyA) {
-        direction.z += Math.sin(rotation) * this.player.speed;
-        direction.x -= Math.cos(rotation) * this.player.speed;
-      }
-      if (this.keys.KeyD) {
-        direction.z -= Math.sin(rotation) * this.player.speed;
-        direction.x += Math.cos(rotation) * this.player.speed;
+      // Check for mobile controls first
+      const mobileDirection = this.ui.getMobileControlDirection();
+      
+      if (mobileDirection) {
+        // Mobile joystick controls
+        direction.z = -mobileDirection.z * this.player.speed; // Forward/backward
+        direction.x = mobileDirection.x * this.player.speed;  // Left/right
+        
+        // Apply rotation - mobile controls are relative to camera view
+        const rotatedDirection = new THREE.Vector3();
+        rotatedDirection.z = Math.cos(rotation) * direction.z - Math.sin(rotation) * direction.x;
+        rotatedDirection.x = Math.sin(rotation) * direction.z + Math.cos(rotation) * direction.x;
+        
+        direction.copy(rotatedDirection);
+      } else {
+        // Keyboard controls
+        if (this.keys.KeyW) {
+          direction.z -= Math.cos(rotation) * this.player.speed;
+          direction.x -= Math.sin(rotation) * this.player.speed;
+        }
+        if (this.keys.KeyS) {
+          direction.z += Math.cos(rotation) * this.player.speed;
+          direction.x += Math.sin(rotation) * this.player.speed;
+        }
+        if (this.keys.KeyA) {
+          direction.z += Math.sin(rotation) * this.player.speed;
+          direction.x -= Math.cos(rotation) * this.player.speed;
+        }
+        if (this.keys.KeyD) {
+          direction.z -= Math.sin(rotation) * this.player.speed;
+          direction.x += Math.cos(rotation) * this.player.speed;
+        }
       }
       
       // God mode vertical movement (flying)

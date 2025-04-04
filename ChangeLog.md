@@ -1,5 +1,8 @@
 ## Changelog
 
+**2025-04-04 v1.1.0**
+- Added Mobile controls	
+
 **2025-04-04 v1.0.3**
 - Fixed Buffs to countdown consistently and all items show buffs not just beer
 - Corrected issue where player character would stay red when not taking damage

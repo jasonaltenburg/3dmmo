@@ -22,6 +22,15 @@ export class GameUI {
     
     // Store active effects
     this.activeEffects = {};
+    
+    // Mobile controls state
+    this.isMobile = this.detectMobile();
+    this.mobileControls = {
+      active: false,
+      joystickPosition: { x: 0, y: 0 },
+      joystickTouchId: null,
+      direction: new THREE.Vector3()
+    };
   }
 
   createUI() {
@@ -37,6 +46,11 @@ export class GameUI {
     this.uiContainer.style.zIndex = '9999';
     this.uiContainer.style.pointerEvents = 'none';
     document.body.appendChild(this.uiContainer);
+    
+    // Create mobile controls if on a mobile device
+    if (this.isMobile) {
+      this.createMobileControls();
+    }
 
     // Instead of silently failing, log a warning if there's no #loading element
     const loadingScreen = document.getElementById("loading");
@@ -1098,6 +1112,317 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
     }
   }
   
+  // Mobile device detection
+  detectMobile() {
+    return (
+      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      (window.innerWidth <= 800 && window.innerHeight <= 900)
+    );
+  }
+  
+  // Create mobile controls UI
+  createMobileControls() {
+    const mobileControlsContainer = document.createElement('div');
+    mobileControlsContainer.id = 'mobile-controls';
+    mobileControlsContainer.style.position = 'absolute';
+    mobileControlsContainer.style.bottom = '10px';
+    mobileControlsContainer.style.left = '0';
+    mobileControlsContainer.style.width = '100%';
+    mobileControlsContainer.style.height = '200px';
+    mobileControlsContainer.style.pointerEvents = 'auto';
+    mobileControlsContainer.style.display = 'flex';
+    mobileControlsContainer.style.justifyContent = 'space-between';
+    mobileControlsContainer.style.alignItems = 'flex-end';
+    this.uiContainer.appendChild(mobileControlsContainer);
+    
+    // Create virtual joystick
+    const joystickContainer = document.createElement('div');
+    joystickContainer.id = 'joystick-container';
+    joystickContainer.style.position = 'relative';
+    joystickContainer.style.width = '150px';
+    joystickContainer.style.height = '150px';
+    joystickContainer.style.margin = '10px';
+    joystickContainer.style.borderRadius = '50%';
+    joystickContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    joystickContainer.style.border = '2px solid rgba(255, 255, 255, 0.6)';
+    mobileControlsContainer.appendChild(joystickContainer);
+    
+    // Joystick handle
+    const joystickHandle = document.createElement('div');
+    joystickHandle.id = 'joystick-handle';
+    joystickHandle.style.position = 'absolute';
+    joystickHandle.style.top = '50%';
+    joystickHandle.style.left = '50%';
+    joystickHandle.style.transform = 'translate(-50%, -50%)';
+    joystickHandle.style.width = '60px';
+    joystickHandle.style.height = '60px';
+    joystickHandle.style.borderRadius = '50%';
+    joystickHandle.style.backgroundColor = 'rgba(255, 255, 255, 0.8)';
+    joystickHandle.style.pointerEvents = 'none';
+    joystickContainer.appendChild(joystickHandle);
+    
+    // Action buttons container
+    const actionButtonsContainer = document.createElement('div');
+    actionButtonsContainer.style.display = 'flex';
+    actionButtonsContainer.style.flexDirection = 'column';
+    actionButtonsContainer.style.margin = '10px 20px';
+    actionButtonsContainer.style.gap = '15px';
+    mobileControlsContainer.appendChild(actionButtonsContainer);
+    
+    // Create action buttons
+    const createActionButton = (id, text, color) => {
+      const button = document.createElement('div');
+      button.id = id;
+      button.className = 'mobile-action-button';
+      button.textContent = text;
+      button.style.width = '70px';
+      button.style.height = '70px';
+      button.style.borderRadius = '50%';
+      button.style.backgroundColor = color;
+      button.style.display = 'flex';
+      button.style.justifyContent = 'center';
+      button.style.alignItems = 'center';
+      button.style.color = 'white';
+      button.style.fontWeight = 'bold';
+      button.style.fontSize = '16px';
+      button.style.boxShadow = '0 4px 8px rgba(0,0,0,0.3)';
+      button.style.userSelect = 'none';
+      return button;
+    };
+    
+    // Create action buttons
+    const jumpButton = createActionButton('jump-button', 'JUMP', 'rgba(0, 180, 0, 0.8)');
+    const attackButton = createActionButton('attack-button', 'ATTACK', 'rgba(180, 0, 0, 0.8)');
+    const menuButton = createActionButton('menu-button', 'MENU', 'rgba(0, 0, 180, 0.8)');
+    
+    actionButtonsContainer.appendChild(jumpButton);
+    actionButtonsContainer.appendChild(attackButton);
+    actionButtonsContainer.appendChild(menuButton);
+    
+    this.mobileControlElements = {
+      container: mobileControlsContainer,
+      joystick: {
+        container: joystickContainer,
+        handle: joystickHandle
+      },
+      buttons: {
+        jump: jumpButton,
+        attack: attackButton,
+        menu: menuButton
+      }
+    };
+    
+    // Setup event listeners for mobile controls
+    this.setupMobileControlEvents();
+  }
+  
+  // Set up mobile touch controls
+  setupMobileControlEvents() {
+    // Joystick events
+    const joystickContainer = this.mobileControlElements.joystick.container;
+    const joystickHandle = this.mobileControlElements.joystick.handle;
+    const containerRect = joystickContainer.getBoundingClientRect();
+    const centerX = containerRect.width / 2;
+    const centerY = containerRect.height / 2;
+    const maxDistance = containerRect.width / 2 - 30; // Radius minus handle radius
+    
+    // Touch start on joystick
+    joystickContainer.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      const touch = e.touches[0];
+      this.mobileControls.joystickTouchId = touch.identifier;
+      this.handleJoystickMove(touch.clientX - containerRect.left, touch.clientY - containerRect.top, centerX, centerY, maxDistance);
+      this.mobileControls.active = true;
+    });
+    
+    // Touch move (anywhere on screen)
+    document.addEventListener('touchmove', (e) => {
+      e.preventDefault();
+      if (this.mobileControls.joystickTouchId !== null) {
+        for (let i = 0; i < e.touches.length; i++) {
+          const touch = e.touches[i];
+          if (touch.identifier === this.mobileControls.joystickTouchId) {
+            this.handleJoystickMove(touch.clientX - containerRect.left, touch.clientY - containerRect.top, centerX, centerY, maxDistance);
+            break;
+          }
+        }
+      }
+    }, { passive: false });
+    
+    // Touch end
+    document.addEventListener('touchend', (e) => {
+      for (let i = 0; i < e.changedTouches.length; i++) {
+        const touch = e.changedTouches[i];
+        if (touch.identifier === this.mobileControls.joystickTouchId) {
+          // Reset joystick
+          joystickHandle.style.top = '50%';
+          joystickHandle.style.left = '50%';
+          this.mobileControls.joystickPosition = { x: 0, y: 0 };
+          this.mobileControls.joystickTouchId = null;
+          this.mobileControls.direction.set(0, 0, 0);
+          this.mobileControls.active = false;
+          break;
+        }
+      }
+    });
+    
+    // Action buttons
+    const jumpButton = this.mobileControlElements.buttons.jump;
+    const attackButton = this.mobileControlElements.buttons.attack;
+    const menuButton = this.mobileControlElements.buttons.menu;
+    
+    // Jump button
+    jumpButton.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ' }));
+      jumpButton.style.transform = 'scale(0.9)';
+    });
+    
+    jumpButton.addEventListener('touchend', () => {
+      jumpButton.style.transform = 'scale(1.0)';
+    });
+    
+    // Attack button
+    attackButton.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }));
+      attackButton.style.transform = 'scale(0.9)';
+    });
+    
+    attackButton.addEventListener('touchend', () => {
+      attackButton.style.transform = 'scale(1.0)';
+    });
+    
+    // Menu button
+    menuButton.addEventListener('touchstart', (e) => {
+      e.preventDefault();
+      this.showMobileMenu();
+      menuButton.style.transform = 'scale(0.9)';
+    });
+    
+    menuButton.addEventListener('touchend', () => {
+      menuButton.style.transform = 'scale(1.0)';
+    });
+  }
+  
+  // Handle joystick movement
+  handleJoystickMove(touchX, touchY, centerX, centerY, maxDistance) {
+    // Calculate distance from center
+    let deltaX = touchX - centerX;
+    let deltaY = touchY - centerY;
+    let distance = Math.sqrt(deltaX * deltaX + deltaY * deltaY);
+    
+    // Limit to max distance
+    if (distance > maxDistance) {
+      const ratio = maxDistance / distance;
+      deltaX *= ratio;
+      deltaY *= ratio;
+      distance = maxDistance;
+    }
+    
+    // Update handle position
+    const handle = this.mobileControlElements.joystick.handle;
+    handle.style.left = `${centerX + deltaX}px`;
+    handle.style.top = `${centerY + deltaY}px`;
+    
+    // Normalize for direction vector (range -1 to 1)
+    const normalizedX = deltaX / maxDistance;
+    const normalizedY = deltaY / maxDistance;
+    
+    this.mobileControls.joystickPosition = { x: normalizedX, y: normalizedY };
+    
+    // Set direction for movement (Z is forward/back, X is left/right)
+    this.mobileControls.direction.z = normalizedY;
+    this.mobileControls.direction.x = normalizedX;
+  }
+  
+  // Show mobile menu overlay
+  showMobileMenu() {
+    const mobileMenuOverlay = document.createElement('div');
+    mobileMenuOverlay.id = 'mobile-menu-overlay';
+    mobileMenuOverlay.style.position = 'absolute';
+    mobileMenuOverlay.style.top = '0';
+    mobileMenuOverlay.style.left = '0';
+    mobileMenuOverlay.style.width = '100%';
+    mobileMenuOverlay.style.height = '100%';
+    mobileMenuOverlay.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    mobileMenuOverlay.style.display = 'flex';
+    mobileMenuOverlay.style.flexDirection = 'column';
+    mobileMenuOverlay.style.justifyContent = 'center';
+    mobileMenuOverlay.style.alignItems = 'center';
+    mobileMenuOverlay.style.zIndex = '10000';
+    mobileMenuOverlay.style.pointerEvents = 'auto';
+    this.uiContainer.appendChild(mobileMenuOverlay);
+    
+    // Menu title
+    const menuTitle = document.createElement('h2');
+    menuTitle.textContent = 'Game Menu';
+    menuTitle.style.color = 'white';
+    menuTitle.style.marginBottom = '20px';
+    mobileMenuOverlay.appendChild(menuTitle);
+    
+    // Menu buttons
+    const menuButtons = [
+      { id: 'inventory-button', text: 'Inventory', action: () => {
+        this.toggleInventory(window.gameManager.player.inventory, window.gameManager.player.gold);
+        this.closeMobileMenu();
+      }},
+      { id: 'stats-button', text: 'Character Stats', action: () => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyP' }));
+        this.closeMobileMenu();
+      }},
+      { id: 'shop-button', text: 'Shop', action: () => {
+        if (window.gameManager.activeRegion && 
+            (window.gameManager.activeRegion.name === 'Town' || window.gameManager.activeRegion.name === 'Tavern')) {
+          this.toggleShop(window.gameManager.player.gold);
+          this.closeMobileMenu();
+        } else {
+          this.addCombatMessage('Shop is only available in Town or Tavern!', 'error');
+        }
+      }},
+      { id: 'camera-button', text: 'Toggle Camera', action: () => {
+        document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC' }));
+        this.closeMobileMenu();
+      }},
+      { id: 'close-button', text: 'Close Menu', action: () => this.closeMobileMenu() }
+    ];
+    
+    menuButtons.forEach(button => {
+      const menuButton = document.createElement('div');
+      menuButton.id = button.id;
+      menuButton.className = 'mobile-menu-button';
+      menuButton.textContent = button.text;
+      menuButton.style.width = '200px';
+      menuButton.style.padding = '15px';
+      menuButton.style.margin = '10px';
+      menuButton.style.backgroundColor = 'rgba(50, 50, 100, 0.8)';
+      menuButton.style.borderRadius = '5px';
+      menuButton.style.color = 'white';
+      menuButton.style.textAlign = 'center';
+      menuButton.style.fontWeight = 'bold';
+      menuButton.style.boxShadow = '0 2px 5px rgba(0,0,0,0.3)';
+      menuButton.addEventListener('touchstart', (e) => {
+        e.preventDefault();
+        menuButton.style.backgroundColor = 'rgba(70, 70, 140, 0.8)';
+        button.action();
+      });
+      mobileMenuOverlay.appendChild(menuButton);
+    });
+  }
+  
+  // Close mobile menu overlay
+  closeMobileMenu() {
+    const mobileMenuOverlay = document.getElementById('mobile-menu-overlay');
+    if (mobileMenuOverlay) {
+      this.uiContainer.removeChild(mobileMenuOverlay);
+    }
+  }
+  
+  // Get joystick direction for game manager
+  getMobileControlDirection() {
+    return this.mobileControls.active ? this.mobileControls.direction : null;
+  }
+  
   // Method to show region info
   showRegionInfo(region) {
     if (region !== this.currentRegion) {
@@ -1417,6 +1742,17 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
     // Clear all buff timeouts
     for (const buffId in this.activeEffects) {
       this.removeStatusEffect(buffId);
+    }
+    
+    // Clear mobile controls
+    if (this.isMobile) {
+      document.removeEventListener('touchmove', this.touchMoveHandler);
+      document.removeEventListener('touchend', this.touchEndHandler);
+    }
+    
+    // Remove global reference
+    if (window.gameManager && window.gameManager.ui === this) {
+      delete window.gameManager;
     }
   }
 }
