@@ -43,8 +43,14 @@ export class GameManager {
       KeyS: false,
       KeyD: false,
       Space: false,
-      KeyJ: false
+      KeyJ: false,
+      KeyQ: false,
+      KeyE: false,
+      KeyZ: false
     };
+    
+    // God mode settings
+    this.godMode = false;
     
     // Game state
     this.gameActive = true;
@@ -288,11 +294,24 @@ export class GameManager {
 
     // Toggle debug mode with Ctrl+Shift+` (Backquote)
     window.addEventListener('keydown', (e) => {
-    if (e.ctrlKey && e.shiftKey && e.code === 'Backquote') {
-      this.debugEnabled = !this.debugEnabled;
-      this.debugLog(`Debug mode ${this.debugEnabled ? 'enabled' : 'disabled'}`);
-      this.debugLog(`Debug mode ${this.debugEnabled ? 'enabled' : 'disabled'}`);
-    }
+      if (e.ctrlKey && e.shiftKey && e.code === 'Backquote') {
+        this.debugEnabled = !this.debugEnabled;
+        this.debugLog(`Debug mode ${this.debugEnabled ? 'enabled' : 'disabled'}`);
+      }
+    });
+    
+    // God mode activation with Ctrl+Shift+M
+    window.addEventListener('keydown', (e) => {
+      if (e.ctrlKey && e.shiftKey && e.code === 'KeyM') {
+        this.promptGodModePassword();
+      }
+    });
+    
+    // God mode laser attack with Z
+    window.addEventListener('keydown', (e) => {
+      if (e.code === 'KeyZ' && this.godMode && !this.chatActive) {
+        this.fireLasers();
+      }
     });
 
     // Socket events
@@ -555,6 +574,261 @@ export class GameManager {
     this.enemies = [];
   }
   
+  promptGodModePassword() {
+    // Create a modal dialog for password
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.left = '0';
+    modal.style.top = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    modal.style.zIndex = '1000';
+    
+    const box = document.createElement('div');
+    box.style.width = '300px';
+    box.style.backgroundColor = '#222';
+    box.style.padding = '20px';
+    box.style.borderRadius = '5px';
+    box.style.textAlign = 'center';
+    box.style.color = 'white';
+    
+    const title = document.createElement('h3');
+    title.textContent = 'Enter the Magic Word';
+    title.style.margin = '0 0 20px 0';
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Magic word...';
+    input.style.width = '100%';
+    input.style.padding = '8px';
+    input.style.marginBottom = '15px';
+    input.style.backgroundColor = '#333';
+    input.style.border = '1px solid #444';
+    input.style.color = 'white';
+    input.style.borderRadius = '3px';
+    
+    const submitBtn = document.createElement('button');
+    submitBtn.textContent = 'Submit';
+    submitBtn.style.padding = '8px 15px';
+    submitBtn.style.backgroundColor = '#4CAF50';
+    submitBtn.style.border = 'none';
+    submitBtn.style.borderRadius = '3px';
+    submitBtn.style.color = 'white';
+    submitBtn.style.marginRight = '10px';
+    submitBtn.style.cursor = 'pointer';
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Cancel';
+    cancelBtn.style.padding = '8px 15px';
+    cancelBtn.style.backgroundColor = '#f44336';
+    cancelBtn.style.border = 'none';
+    cancelBtn.style.borderRadius = '3px';
+    cancelBtn.style.color = 'white';
+    cancelBtn.style.cursor = 'pointer';
+    
+    box.appendChild(title);
+    box.appendChild(input);
+    box.appendChild(submitBtn);
+    box.appendChild(cancelBtn);
+    modal.appendChild(box);
+    
+    document.body.appendChild(modal);
+    
+    // Focus the input
+    setTimeout(() => input.focus(), 0);
+    
+    // Submit handler
+    const handleSubmit = () => {
+      const password = input.value.trim().toLowerCase();
+      if (password === 'xyzzy') {
+        this.enableGodMode();
+      } else {
+        this.ui.addCombatMessage('Incorrect magic word!', 'error');
+      }
+      document.body.removeChild(modal);
+    };
+    
+    // Event listeners
+    submitBtn.addEventListener('click', handleSubmit);
+    cancelBtn.addEventListener('click', () => document.body.removeChild(modal));
+    
+    // Allow enter key to submit
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleSubmit();
+    });
+  }
+  
+  enableGodMode() {
+    this.godMode = true;
+    
+    // Give player cool visual effects for god mode
+    const godlightGeometry = new THREE.SphereGeometry(0.5, 16, 16);
+    const godlightMaterial = new THREE.MeshBasicMaterial({
+      color: 0xffff00,
+      transparent: true,
+      opacity: 0.7
+    });
+    
+    this.godModeLight = new THREE.Mesh(godlightGeometry, godlightMaterial);
+    this.godModeLight.position.y = 2;
+    this.player.model.add(this.godModeLight);
+    
+    // Create a point light to make player glow
+    const light = new THREE.PointLight(0xffff00, 1, 3);
+    light.position.set(0, 1, 0);
+    this.player.model.add(light);
+    this.godModePointLight = light;
+    
+    // Make health infinite
+    this.player.health = this.player.maxHealth;
+    this.player.updateHealthBar();
+    
+    // Show message
+    this.ui.addCombatMessage('GOD MODE ACTIVATED!', 'system');
+    this.ui.addCombatMessage('Press Q/E to fly up/down', 'system');
+    this.ui.addCombatMessage('Press Z to fire eye lasers', 'system');
+  }
+  
+  fireLasers() {
+    if (!this.godMode || !this.player) return;
+    
+    this.debugLog('Firing lasers!');
+    
+    // Create laser beams from player's eyes
+    const createLaser = () => {
+      const laserGeometry = new THREE.CylinderGeometry(0.05, 0.05, 100, 8);
+      const laserMaterial = new THREE.MeshBasicMaterial({ 
+        color: 0xff0000,
+        transparent: true,
+        opacity: 0.8
+      });
+      
+      const laser = new THREE.Mesh(laserGeometry, laserMaterial);
+      laser.rotation.x = Math.PI / 2; // Rotate to point forward
+      
+      // Position at player's eye level
+      laser.position.y = 1.75;
+      
+      return laser;
+    };
+    
+    // Create left and right eye lasers
+    const leftLaser = createLaser();
+    leftLaser.position.x = -0.2;
+    this.player.model.add(leftLaser);
+    
+    const rightLaser = createLaser();
+    rightLaser.position.x = 0.2;
+    this.player.model.add(rightLaser);
+    
+    // Add glow effect to player's eyes
+    this.player.model.traverse((object) => {
+      if (object === this.player.model.children[1]) { // Head is second child in the model
+        const eyeGlow = new THREE.PointLight(0xff0000, 1, 2);
+        eyeGlow.position.set(0, 0, 0.2);
+        object.add(eyeGlow);
+        
+        // Remove after effect ends
+        setTimeout(() => object.remove(eyeGlow), 1000);
+      }
+    });
+    
+    // Find all enemies in range and damage them
+    const laserRange = 50; // Very long range
+    const laserDamage = 9999; // Massive damage
+    
+    for (let i = this.enemies.length - 1; i >= 0; i--) {
+      const enemy = this.enemies[i];
+      
+      // Check if enemy is in front of player (simplified, just use distance)
+      const distance = this.player.model.position.distanceTo(enemy.model.position);
+      if (distance <= laserRange) {
+        // Apply damage to enemy
+        const result = enemy.takeDamage(laserDamage);
+        
+        // Show damage number
+        this.ui.showDamageNumber(
+          enemy.model.position.clone().add(new THREE.Vector3(0, 1.5, 0)),
+          laserDamage,
+          'damage',
+          this.camera
+        );
+        
+        // Add combat message
+        this.ui.addCombatMessage(`Your eye lasers hit the ${enemy.type} for ${laserDamage} damage!`);
+        
+        if (result.dead) {
+          // Calculate XP based on enemy level
+          const xpGained = enemy.level * 10;
+          
+          // Give player XP
+          const xpData = this.player.gainExperience(xpGained);
+          
+          // Show XP gain
+          this.ui.showDamageNumber(
+            enemy.model.position.clone().add(new THREE.Vector3(0, 2, 0)),
+            xpGained,
+            'xp',
+            this.camera
+          );
+          
+          // Add combat message
+          this.ui.addCombatMessage(`You obliterated the ${enemy.type} and gained ${xpGained} XP.`);
+          
+          // Process drops
+          if (result.drops) {
+            // Add gold
+            if (result.drops.gold > 0) {
+              const goldAmount = result.drops.gold;
+              this.player.addGold(goldAmount);
+              
+              // Show gold gain
+              this.ui.showDamageNumber(
+                enemy.model.position.clone().add(new THREE.Vector3(0, 2.3, 0)),
+                goldAmount,
+                'gold',
+                this.camera
+              );
+              
+              this.ui.addCombatMessage(`Found ${goldAmount} gold.`);
+              this.ui.updatePlayerStats(this.player);
+            }
+            
+            // Add items to inventory
+            if (result.drops.items && result.drops.items.length > 0) {
+              result.drops.items.forEach(item => {
+                this.player.addItem(item);
+                
+                // Add item message with rarity color
+                let rarityColor = 'white';
+                if (item.rarity === 'rare') rarityColor = '#4444ff';
+                if (item.rarity === 'epic') rarityColor = '#aa44ff';
+                
+                this.ui.addCombatMessage(`Found <span style="color:${rarityColor}">${item.name}</span>!`);
+              });
+              
+              this.ui.updateInventory(this.player.inventory);
+            }
+          }
+          
+          // Remove enemy
+          enemy.cleanup();
+          this.enemies.splice(i, 1);
+        }
+      }
+    }
+    
+    // Remove lasers after a short time
+    setTimeout(() => {
+      this.player.model.remove(leftLaser);
+      this.player.model.remove(rightLaser);
+    }, 1000);
+  }
+  
   playerJump() {
     if (!this.player) return;
     
@@ -698,7 +972,7 @@ export class GameManager {
     
     switch (command) {
       case '/help':
-        this.ui.addChatMessage('', 'Available commands: /help, /region, /stats, /players', 'system');
+        this.ui.addChatMessage('', 'Available commands: /help, /region, /stats, /players, /godmode', 'system');
         break;
       
       case '/region':
@@ -719,6 +993,7 @@ export class GameManager {
         this.ui.addChatMessage('', `Attack: ${this.player.attackDamage}`, 'system');
         this.ui.addChatMessage('', `Defense: ${this.player.defense}`, 'system');
         this.ui.addChatMessage('', `XP: ${this.player.experience}/${this.player.experienceToNextLevel}`, 'system');
+        this.ui.addChatMessage('', `God Mode: ${this.godMode ? 'ENABLED' : 'disabled'}`, 'system');
         break;
       
       case '/players':
@@ -728,6 +1003,14 @@ export class GameManager {
         
         for (const id in this.otherPlayers) {
           this.ui.addChatMessage('', `- ${id}`, 'system');
+        }
+        break;
+      
+      case '/godmode':
+        if (this.godMode) {
+          this.ui.addChatMessage('', 'God Mode is already enabled!', 'system');
+        } else {
+          this.ui.addChatMessage('', 'Nice try! But you need to know the magical password...', 'system');
         }
         break;
       
@@ -747,24 +1030,29 @@ export class GameManager {
       // Check for attack
       if (result && result.type === 'attack') {
         // Enemy hit the player
-        const isDead = this.player.takeDamage(result.damage);
+        const isDead = this.player.takeDamage(result.damage, this.godMode);
         
-        // Show damage number
+        // Show damage number (0 damage if in god mode)
+        const displayedDamage = this.godMode ? 0 : result.damage;
         this.ui.showDamageNumber(
           this.player.model.position.clone().add(new THREE.Vector3(0, 1.5, 0)),
-          result.damage,
+          displayedDamage,
           'damage',
           this.camera
         );
         
         // Add combat message
-        this.ui.addCombatMessage(`The ${enemy.type} hit you for ${result.damage} damage.`);
+        if (this.godMode) {
+          this.ui.addCombatMessage(`The ${enemy.type} tried to hit you but your godly powers protected you!`);
+        } else {
+          this.ui.addCombatMessage(`The ${enemy.type} hit you for ${result.damage} damage.`);
+        }
         
         // Update UI
         this.ui.updatePlayerStats(this.player);
         
         if (isDead) {
-          // Player died
+          // Player died (shouldn't happen in god mode)
           this.handlePlayerDeath();
         }
       }
@@ -778,6 +1066,15 @@ export class GameManager {
   }
   
   handlePlayerDeath() {
+    // Don't die in god mode
+    if (this.godMode) {
+      this.player.health = this.player.maxHealth;
+      this.player.updateHealthBar();
+      this.ui.updatePlayerStats(this.player);
+      this.ui.addCombatMessage('Your godly powers protect you from death!', 'system');
+      return;
+    }
+    
     // Respawn player at town center
     this.player.model.position.set(0, 0, 0);
     
@@ -829,9 +1126,24 @@ export class GameManager {
         direction.x += Math.cos(rotation) * this.player.speed;
       }
       
+      // God mode vertical movement (flying)
+      if (this.godMode) {
+        if (this.keys.KeyQ) {
+          direction.y += this.player.speed;
+        }
+        if (this.keys.KeyE) {
+          direction.y -= this.player.speed;
+        }
+      }
+      
       if (direction.length() > 0) {
         this.player.model.position.add(direction);
         this.player.model.rotation.y = rotation;
+        
+        // Keep player on ground if not in god mode
+        if (!this.godMode && !this.player.isJumping) {
+          this.player.model.position.y = this.player.groundLevel;
+        }
         
         // Update camera based on camera mode
         this.updateCamera();
@@ -962,6 +1274,16 @@ export class GameManager {
   
   cleanup() {
     this.gameActive = false;
+    
+    // Remove god mode effects if active
+    if (this.godMode && this.player) {
+      if (this.godModeLight) {
+        this.player.model.remove(this.godModeLight);
+      }
+      if (this.godModePointLight) {
+        this.player.model.remove(this.godModePointLight);
+      }
+    }
     
     // Remove event listeners
     window.removeEventListener('keydown', this.keydownHandler);

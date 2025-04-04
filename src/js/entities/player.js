@@ -306,19 +306,22 @@ export class Player {
     return false;
   }
   
-  takeDamage(amount) {
+  takeDamage(amount, isGodMode = false) {
     // Apply defense reduction (percentage-based)
     const damageReduction = this.defense / 100;
     const actualDamage = Math.max(1, Math.floor(amount * (1 - damageReduction)));
     
-    this.health = Math.max(0, this.health - actualDamage);
-    this.inCombat = true;
-    this.lastDamageTime = Date.now();
+    // In god mode, don't actually take damage
+    if (!isGodMode) {
+      this.health = Math.max(0, this.health - actualDamage);
+      this.inCombat = true;
+      this.lastDamageTime = Date.now();
+    }
     
     // Update health bar
     this.updateHealthBar();
     
-    // Flash the player red
+    // Flash the player red (even in god mode to show the hit)
     const originalMaterials = [];
     this.model.traverse((object) => {
       if (object.isMesh && object.material) {
