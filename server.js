@@ -8,7 +8,7 @@ const server = http.createServer(app);
 const io = socketIO(server);
 
 // Serve static files from the public directory
-app.use(express.static(path.join(__dirname, 'public')));
+app.use(express.static(path.join(__dirname, 'dist')));
 
 // Allow access to node_modules for client-side imports
 app.use('/node_modules', express.static(path.join(__dirname, 'node_modules')));
