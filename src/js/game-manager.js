@@ -1,5 +1,9 @@
 import * as THREE from 'three';
 import { OrbitControls } from 'three/examples/jsm/controls/OrbitControls.js';
+import { EffectComposer } from 'three/examples/jsm/postprocessing/EffectComposer.js';
+import { RenderPass } from 'three/examples/jsm/postprocessing/RenderPass.js';
+import { UnrealBloomPass } from 'three/examples/jsm/postprocessing/UnrealBloomPass.js';
+import { OutputPass } from 'three/examples/jsm/postprocessing/OutputPass.js';
 
 // Keep these imports as they are local to your project
 import { World } from './world/world.js';
@@ -17,8 +21,8 @@ export class GameManager {
       }
     };
     this.scene = new THREE.Scene();
-    this.setupRenderer();
     this.setupCamera();
+    this.setupRenderer();
     this.setupLighting();
     this.setupControls();
     
@@ -64,11 +68,47 @@ export class GameManager {
   }
   
   setupRenderer() {
-    this.renderer = new THREE.WebGLRenderer({ antialias: true });
+    // Create renderer
+    this.renderer = new THREE.WebGLRenderer({ 
+      antialias: true,
+      powerPreference: "high-performance"
+    });
     this.renderer.setSize(window.innerWidth, window.innerHeight);
     this.renderer.shadowMap.enabled = true;
     this.renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+    this.renderer.toneMapping = THREE.ReinhardToneMapping;
+    this.renderer.toneMappingExposure = 1.5;
     document.body.appendChild(this.renderer.domElement);
+    
+    // Create effect composer for post-processing
+    this.composer = new EffectComposer(this.renderer);
+    
+    // Add render pass (main scene rendering)
+    const renderPass = new RenderPass(this.scene, this.camera);
+    this.composer.addPass(renderPass);
+    
+    // Add bloom pass for glow effects
+    const bloomParams = {
+      strength: 0.8,    // Bloom intensity
+      radius: 0.5,      // Bloom radius
+      threshold: 0.2    // Minimum brightness to apply bloom
+    };
+    
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(window.innerWidth, window.innerHeight),
+      bloomParams.strength,
+      bloomParams.radius,
+      bloomParams.threshold
+    );
+    this.composer.addPass(bloomPass);
+    
+    // Add output pass (final rendering)
+    const outputPass = new OutputPass();
+    this.composer.addPass(outputPass);
+    
+    // Store bloom parameters for possible adjustment later
+    this.bloomPass = bloomPass;
+    this.bloomParams = bloomParams;
   }
   
   setupCamera() {
@@ -182,6 +222,11 @@ export class GameManager {
       this.camera.aspect = window.innerWidth / window.innerHeight;
       this.camera.updateProjectionMatrix();
       this.renderer.setSize(window.innerWidth, window.innerHeight);
+      
+      // Also resize composer
+      if (this.composer) {
+        this.composer.setSize(window.innerWidth, window.innerHeight);
+      }
     };
     
     // Add event listeners
@@ -229,11 +274,24 @@ export class GameManager {
     
     document.addEventListener('use-item', (e) => {
       const itemId = e.detail.itemId;
+      const item = this.player.inventory.consumables.find(item => item.id === itemId);
       const result = this.player.useConsumable(itemId);
       
       if (result) {
         this.ui.updatePlayerStats(this.player);
         this.ui.updateInventory(this.player.inventory);
+        
+        // Add buff icon for consumable if it has a buff effect
+        if (item && item.effects && item.effects.buff) {
+          const buff = item.effects.buff;
+          const icon = this.getBuffIcon(buff.id);
+          const name = this.getBuffDescription(buff);
+          
+          this.ui.addStatusEffect(buff.id, icon, buff.duration, name);
+          this.ui.addCombatMessage(`Used ${item.name}! ${name}`);
+        } else if (item && item.effects && item.effects.health) {
+          this.ui.addCombatMessage(`Used ${item.name}! Restored ${item.effects.health} health.`);
+        }
       }
     });
     
@@ -291,6 +349,36 @@ export class GameManager {
         this.ui.addCombatMessage('Not enough gold to buy beer!', 'error');
       }
     });
+    
+    // Helper methods for buff display
+    this.getBuffIcon = (buffId) => {
+      const buffIcons = {
+        'beer_buff': '🍺',
+        'strength_buff': '💪',
+        'defense_buff': '🛡️',
+        'health_buff': '❤️',
+        'speed_buff': '⚡',
+        'vampire_buff': '🧛',
+        'fire_buff': '🔥'
+      };
+      
+      return buffIcons[buffId] || '✨'; // Default icon if not found
+    };
+    
+    this.getBuffDescription = (buff) => {
+      let description = '';
+      
+      if (buff.stats) {
+        const stats = [];
+        if (buff.stats.attackDamage) stats.push(`+${buff.stats.attackDamage} Attack`);
+        if (buff.stats.defense) stats.push(`+${buff.stats.defense} Defense`);
+        if (buff.stats.maxHealth) stats.push(`+${buff.stats.maxHealth} Max Health`);
+        
+        description = stats.join(', ') + ` for ${buff.duration/1000}s`;
+      }
+      
+      return description;
+    };
 
     // Toggle debug mode with Ctrl+Shift+` (Backquote)
     window.addEventListener('keydown', (e) => {
@@ -667,14 +755,18 @@ export class GameManager {
     
     // Give player cool visual effects for god mode
     const godlightGeometry = new THREE.SphereGeometry(0.5, 16, 16);
-    const godlightMaterial = new THREE.MeshBasicMaterial({
+    const godlightMaterial = new THREE.MeshStandardMaterial({
       color: 0xffff00,
+      emissive: 0xffff00,        // Add emissive color for the glow effect
+      emissiveIntensity: 0.8,    // Strong emissive intensity
       transparent: true,
       opacity: 0.7
     });
     
     this.godModeLight = new THREE.Mesh(godlightGeometry, godlightMaterial);
     this.godModeLight.position.y = 2;
+    // Set this object to use bloom
+    this.godModeLight.layers.enable(1);
     this.player.model.add(this.godModeLight);
     
     // Create a point light to make player glow
@@ -701,8 +793,10 @@ export class GameManager {
     // Create laser beams from player's eyes
     const createLaser = () => {
       const laserGeometry = new THREE.CylinderGeometry(0.05, 0.05, 100, 8);
-      const laserMaterial = new THREE.MeshBasicMaterial({ 
+      const laserMaterial = new THREE.MeshStandardMaterial({ 
         color: 0xff0000,
+        emissive: 0xff0000,             // Add emissive for glow
+        emissiveIntensity: 1.0,         // Full intensity for strong glow
         transparent: true,
         opacity: 0.8
       });
@@ -712,6 +806,9 @@ export class GameManager {
       
       // Position at player's eye level
       laser.position.y = 1.75;
+      
+      // Enable bloom for this object
+      laser.layers.enable(1);
       
       return laser;
     };
@@ -1178,8 +1275,13 @@ export class GameManager {
       this.ui.updateMinimap(this.player, this.otherPlayers, this.world.regions);
     }
     
-    // Render scene
-    this.renderer.render(this.scene, this.camera);
+    // Render scene using the effect composer for post-processing
+    if (this.composer) {
+      this.composer.render();
+    } else {
+      // Fallback to regular rendering if composer isn't available
+      this.renderer.render(this.scene, this.camera);
+    }
   }
   
   updateCamera() {

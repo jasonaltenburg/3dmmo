@@ -1,5 +1,10 @@
 ## Changelog
 
+**2025-04-04 v1.0.3**
+- Fixed Buffs to countdown consistently and all items show buffs not just beer
+- Corrected issue where player character would stay red when not taking damage
+- Things Glow now... perhaps too much, added an EffectComposer and an UnrealBloomPass to the rendering pipeline
+
 **2025-04-04 v1.0.2**
 - Added Secret God Mode (press ctrl+shift+m and type the magic word to obtain godly powers)
 

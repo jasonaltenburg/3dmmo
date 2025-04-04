@@ -990,10 +990,23 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
       this.activeEffects[effectId].endTime = Date.now() + duration;
       this.activeEffects[effectId].element.querySelector('.duration').textContent = Math.ceil(duration / 1000) + 's';
       
+      // Clear existing update interval if any
+      if (this.activeEffects[effectId].updateInterval) {
+        clearInterval(this.activeEffects[effectId].updateInterval);
+      }
+      
+      // Start new update interval
+      const updateInterval = setInterval(() => {
+        this.updateBuffDuration(effectId);
+      }, 1000);
+      
       // Set new timeout
       this.activeEffects[effectId].timeout = setTimeout(() => {
         this.removeStatusEffect(effectId);
       }, duration);
+      
+      // Store update interval
+      this.activeEffects[effectId].updateInterval = updateInterval;
       
       return;
     }
@@ -1035,18 +1048,52 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
       this.removeStatusEffect(effectId);
     }, duration);
     
+    // Setup interval to update duration display every second
+    const updateInterval = setInterval(() => {
+      this.updateBuffDuration(effectId);
+    }, 1000);
+    
     this.activeEffects[effectId] = {
       element: effectElement,
       endTime,
-      timeout
+      timeout,
+      updateInterval
     };
+  }
+  
+  // Method to update buff duration display
+  updateBuffDuration(effectId) {
+    const effect = this.activeEffects[effectId];
+    if (!effect) return;
+    
+    const remaining = Math.max(0, Math.ceil((effect.endTime - Date.now()) / 1000));
+    const durationElement = effect.element.querySelector('.duration');
+    
+    if (durationElement) {
+      durationElement.textContent = remaining + 's';
+    }
+    
+    // If time is up, remove the effect (belt and suspenders)
+    if (remaining <= 0) {
+      this.removeStatusEffect(effectId);
+    }
   }
   
   // Method to remove a status effect
   removeStatusEffect(effectId) {
     if (this.activeEffects[effectId]) {
-      this.statusContainer.removeChild(this.activeEffects[effectId].element);
+      // Remove element from DOM
+      if (this.statusContainer.contains(this.activeEffects[effectId].element)) {
+        this.statusContainer.removeChild(this.activeEffects[effectId].element);
+      }
+      
+      // Clear timers
       clearTimeout(this.activeEffects[effectId].timeout);
+      if (this.activeEffects[effectId].updateInterval) {
+        clearInterval(this.activeEffects[effectId].updateInterval);
+      }
+      
+      // Remove from active effects
       delete this.activeEffects[effectId];
     }
   }

@@ -321,15 +321,28 @@ export class Player {
     // Update health bar
     this.updateHealthBar();
     
+    // Clear any existing "reset color" timeout to prevent race conditions
+    if (this.resetColorTimeout) {
+      clearTimeout(this.resetColorTimeout);
+      this.resetColorTimeout = null;
+    }
+    
+    // Store original materials if not already stored
+    if (!this.originalMaterials || this.originalMaterials.length === 0) {
+      this.originalMaterials = [];
+      this.model.traverse((object) => {
+        if (object.isMesh && object.material) {
+          this.originalMaterials.push({
+            mesh: object,
+            material: object.material.clone()
+          });
+        }
+      });
+    }
+    
     // Flash the player red (even in god mode to show the hit)
-    const originalMaterials = [];
     this.model.traverse((object) => {
       if (object.isMesh && object.material) {
-        originalMaterials.push({
-          mesh: object,
-          material: object.material.clone()
-        });
-        
         // Set to red material
         object.material = new THREE.MeshStandardMaterial({
           color: 0xff0000,
@@ -339,14 +352,52 @@ export class Player {
       }
     });
     
-    // Reset materials after a short delay
-    setTimeout(() => {
-      originalMaterials.forEach(item => {
-        item.mesh.material = item.material;
-      });
+    // Reset materials after a short delay with a more reliable approach
+    this.resetColorTimeout = setTimeout(() => {
+      this.resetPlayerColor();
     }, 100);
     
     return this.health <= 0;
+  }
+  
+  resetPlayerColor() {
+    // Only proceed if we have original materials stored
+    if (this.originalMaterials && this.originalMaterials.length > 0) {
+      this.originalMaterials.forEach(item => {
+        if (item.mesh && item.material) {
+          try {
+            item.mesh.material = item.material;
+          } catch (error) {
+            console.error("Failed to reset material:", error);
+          }
+        }
+      });
+    } else {
+      // Fallback recovery if original materials were lost
+      this.model.traverse((object) => {
+        if (object.isMesh) {
+          // Create default materials based on which body part it is
+          if (object === this.leftArm || object === this.rightArm || 
+              object === this.leftLeg || object === this.rightLeg || 
+              object === this.model.children[0]) { // Body
+            object.material = new THREE.MeshStandardMaterial({
+              color: 0x3366ff,
+              roughness: 0.7,
+              metalness: 0.3
+            });
+          } else if (object === this.model.children[1]) { // Head
+            object.material = new THREE.MeshStandardMaterial({
+              color: 0xffddbb,
+              roughness: 0.7,
+              metalness: 0.1
+            });
+          }
+        }
+      });
+    }
+    
+    // Clear the timeout reference
+    this.resetColorTimeout = null;
   }
   
   updateHealthBar() {
@@ -524,6 +575,17 @@ export class Player {
     // Clear all buff timeouts
     for (const buffId in this.buffs) {
       this.removeBuff(buffId);
+    }
+    
+    // Clear any damage color reset timeout
+    if (this.resetColorTimeout) {
+      clearTimeout(this.resetColorTimeout);
+      this.resetColorTimeout = null;
+    }
+    
+    // Clear stored materials to prevent memory leaks
+    if (this.originalMaterials) {
+      this.originalMaterials = null;
     }
   }
 }
