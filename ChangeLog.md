@@ -1,5 +1,8 @@
 ## Changelog
 
+**2025-04-04 v1.1.3**
+- Updated mobile controls
+
 **2025-04-04 v1.1.2**
 - Added Username Dialog
 

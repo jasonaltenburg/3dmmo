@@ -181,9 +181,20 @@ export class GameManager {
     // Keyboard events
     this.keydownHandler = (e) => {
       this.debugLog('Key pressed:', e.code);
+      
+      // Block all game inputs if name dialog is active
+      if (this.nameDialogActive) {
+        return;
+      }
+      
       if (this.keys.hasOwnProperty(e.code) && !this.chatActive) {
         this.keys[e.code] = true;
         this.debugLog('Key state updated:', e.code, this.keys[e.code]);
+      }
+      
+      // Block all special commands if name dialog is active
+      if (this.nameDialogActive) {
+        return;
       }
       
       // Attack on space
@@ -244,9 +255,15 @@ export class GameManager {
       this.debugLog('Document keydown event:', e.code);
     });
     
+    // Initialize nameDialogActive flag
+    this.nameDialogActive = false;
+    
     // Chat events
     document.addEventListener('chat-opened', () => {
-      this.chatActive = true;
+      // Only allow chat to open if name dialog is not active
+      if (!this.nameDialogActive) {
+        this.chatActive = true;
+      }
     });
     
     document.addEventListener('chat-closed', () => {
@@ -390,7 +407,7 @@ export class GameManager {
 
     // Toggle debug mode with Ctrl+Shift+` (Backquote)
     window.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.code === 'Backquote') {
+      if (e.ctrlKey && e.shiftKey && e.code === 'Backquote' && !this.nameDialogActive) {
         this.debugEnabled = !this.debugEnabled;
         this.debugLog(`Debug mode ${this.debugEnabled ? 'enabled' : 'disabled'}`);
       }
@@ -398,14 +415,14 @@ export class GameManager {
     
     // God mode activation with Ctrl+Shift+M
     window.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.code === 'KeyM') {
+      if (e.ctrlKey && e.shiftKey && e.code === 'KeyM' && !this.nameDialogActive) {
         this.promptGodModePassword();
       }
     });
     
     // God mode laser attack with Z
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'KeyZ' && this.godMode && !this.chatActive) {
+      if (e.code === 'KeyZ' && this.godMode && !this.chatActive && !this.nameDialogActive) {
         this.fireLasers();
       }
     });
@@ -485,7 +502,11 @@ export class GameManager {
 }
 
   promptForPlayerName() {
+    // Disable game input while dialog is open
+    this.chatActive = true; // This prevents keyboard controls
+    
     // Create a modal dialog for player name
+    this.nameDialogActive = true; // Flag to block other UI actions
     const modal = document.createElement('div');
     modal.style.position = 'fixed';
     modal.style.left = '0';
@@ -586,6 +607,10 @@ export class GameManager {
       this.ui.addChatMessage('', `${finalName} has joined the game`, 'system');
       
       document.body.removeChild(modal);
+      
+      // Re-enable game input
+      this.chatActive = false;
+      this.nameDialogActive = false;
     };
     
     // Event listeners
@@ -610,6 +635,10 @@ export class GameManager {
       this.ui.addChatMessage('', `${randomName} has joined the game`, 'system');
       
       document.body.removeChild(modal);
+      
+      // Re-enable game input
+      this.chatActive = false;
+      this.nameDialogActive = false;
     });
     
     // Allow enter key to submit
@@ -1347,8 +1376,8 @@ export class GameManager {
     // Update stats in UI
     this.ui.updatePlayerStats(this.player);
     
-    // System message
-    this.ui.addChatMessage('', 'You have died and respawned in town with 50% health.', 'system');
+    // Death message to combat log instead of chat
+    this.ui.addCombatMessage('You have died and respawned in town with 50% health.', 'system');
     
     // Set camera to follow player
     this.controls.target.copy(this.player.model.position);

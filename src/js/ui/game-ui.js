@@ -19,6 +19,11 @@ export class GameUI {
     this.createInventoryPanel();
     this.createShopPanel();
     
+    // Apply mobile UI adjustments after all UI elements are created
+    if (this.isMobile) {
+      this.adjustUIForMobile();
+    }
+    
     // Keep track of UI state
     this.currentRegion = null;
     this.playerStats = {
@@ -67,13 +72,32 @@ export class GameUI {
     // Region Info
     this.regionInfo = document.createElement('div');
     this.regionInfo.id = 'region-info';
-    this.regionInfo.style = "position: absolute; top: 10px; right: 10px; padding: 10px; background: rgba(0,0,0,0.7); color: white; border-radius: 5px; font-size: 16px; transition: opacity 0.5s; opacity: 0;";
+    // Use individual style properties
+    this.regionInfo.style.position = 'absolute';
+    this.regionInfo.style.top = '10px';
+    this.regionInfo.style.right = '10px';
+    this.regionInfo.style.padding = '10px';
+    this.regionInfo.style.backgroundColor = 'rgba(0,0,0,0.7)';
+    this.regionInfo.style.color = 'white';
+    this.regionInfo.style.borderRadius = '5px';
+    this.regionInfo.style.fontSize = '16px';
+    this.regionInfo.style.transition = 'opacity 0.5s';
+    this.regionInfo.style.opacity = '0';
     this.uiContainer.appendChild(this.regionInfo);
 
     // Player Stats
     this.statsContainer = document.createElement('div');
     this.statsContainer.id = 'player-stats';
-    this.statsContainer.style = "position: absolute; bottom: 10px; left: 10px; padding: 10px; background: rgba(0,0,0,0.7); color: white; border-radius: 5px;";
+    // Use individual style properties instead of the style attribute
+    this.statsContainer.style.position = 'absolute';
+    this.statsContainer.style.padding = '10px';
+    this.statsContainer.style.backgroundColor = 'rgba(0,0,0,0.7)';
+    this.statsContainer.style.color = 'white';
+    this.statsContainer.style.borderRadius = '5px';
+    
+    // Default position for desktop (will be adjusted for mobile in adjustUIForMobile)
+    this.statsContainer.style.bottom = '10px';
+    this.statsContainer.style.left = '10px';
 
     // Health Bar
     this.healthBarContainer = document.createElement('div');
@@ -111,7 +135,18 @@ export class GameUI {
     // Combat Log
     this.combatLog = document.createElement('div');
     this.combatLog.id = 'combat-log';
-    this.combatLog.style = "position: absolute; bottom: 10px; right: 10px; width: 300px; max-height: 150px; overflow-y: auto; padding: 10px; background: rgba(0,0,0,0.7); color: white; border-radius: 5px; font-size: 14px;";
+    // Use individual style properties
+    this.combatLog.style.position = 'absolute';
+    this.combatLog.style.bottom = '10px';
+    this.combatLog.style.right = '10px';
+    this.combatLog.style.width = '300px';
+    this.combatLog.style.maxHeight = '150px';
+    this.combatLog.style.overflowY = 'auto';
+    this.combatLog.style.padding = '10px';
+    this.combatLog.style.backgroundColor = 'rgba(0,0,0,0.7)';
+    this.combatLog.style.color = 'white';
+    this.combatLog.style.borderRadius = '5px';
+    this.combatLog.style.fontSize = '14px';
     this.uiContainer.appendChild(this.combatLog);
 
     // Inventory Panel
@@ -306,20 +341,48 @@ export class GameUI {
     
     // Minimap canvas
     this.minimapCanvas = document.createElement('canvas');
+    // Initial size - will be updated in updateMinimap based on container size
     this.minimapCanvas.width = 150;
     this.minimapCanvas.height = 150;
+    this.minimapCanvas.style.width = '100%';
+    this.minimapCanvas.style.height = '100%';
     this.minimapContainer.appendChild(this.minimapCanvas);
     
     this.minimapContext = this.minimapCanvas.getContext('2d');
   }
   
   updateMinimap(player, otherPlayers, regions) {
+    // Get canvas dimensions that might have changed due to layout
+    if (this.minimapContainer) {
+      // Resize canvas to match container dimensions
+      this.minimapCanvas.width = this.minimapContainer.clientWidth;
+      this.minimapCanvas.height = this.minimapContainer.clientHeight;
+    }
+    
     const ctx = this.minimapContext;
     ctx.clearRect(0, 0, this.minimapCanvas.width, this.minimapCanvas.height);
     
     // Draw background
     ctx.fillStyle = '#111';
-    ctx.fillRect(0, 0, this.minimapCanvas.width, this.minimapCanvas.height);
+    
+    // Check if we're in portrait mode with circular minimap
+    if (!this.isLandscapeOrientation() && 
+        this.minimapContainer && 
+        this.minimapContainer.style.borderRadius === '25px') {
+      // Draw circular background for portrait mode
+      ctx.beginPath();
+      ctx.arc(
+        this.minimapCanvas.width / 2,
+        this.minimapCanvas.height / 2,
+        Math.min(this.minimapCanvas.width, this.minimapCanvas.height) / 2,
+        0,
+        Math.PI * 2
+      );
+      ctx.fill();
+    } else {
+      // Draw rectangular background for landscape mode
+      ctx.fillRect(0, 0, this.minimapCanvas.width, this.minimapCanvas.height);
+    }
     
     // Draw regions
     for (const region of regions) {
@@ -1120,27 +1183,52 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
   detectMobile() {
     const mobileCheck = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
       (window.innerWidth <= 800 && window.innerHeight <= 900);
-    console.log('detectMobile result:', mobileCheck); // <-- Add this log
+    console.log('detectMobile result:', mobileCheck);
     return mobileCheck;
+  }
+  
+  // Check if device is in landscape orientation
+  isLandscapeOrientation() {
+    return window.innerWidth > window.innerHeight;
   }
   
   // Create mobile controls UI
   createMobileControls() {
-    // Adjust UI layout for mobile
+    // Note: UI layout should already be adjusted for mobile at this point
+    // We'll apply it again just to be sure
     this.adjustUIForMobile();
     
-    // Create mobile controls container
+    // Determine if we're in landscape mode
+    const isLandscape = this.isLandscapeOrientation();
+    console.log("Mobile controls created in", isLandscape ? "landscape" : "portrait", "orientation");
+    
+    // Create mobile controls container with proper positioning
     const mobileControlsContainer = document.createElement('div');
     mobileControlsContainer.id = 'mobile-controls';
     mobileControlsContainer.style.position = 'absolute';
-    mobileControlsContainer.style.bottom = '10px';
-    mobileControlsContainer.style.left = '0';
-    mobileControlsContainer.style.width = '100%';
-    mobileControlsContainer.style.height = '200px';
+    
+    if (isLandscape) {
+      // In landscape, distribute controls along the sides
+      mobileControlsContainer.style.top = '0';
+      mobileControlsContainer.style.left = '0';
+      mobileControlsContainer.style.width = '100%';
+      mobileControlsContainer.style.height = '100%';
+      mobileControlsContainer.style.display = 'flex';
+      mobileControlsContainer.style.justifyContent = 'space-between';
+      mobileControlsContainer.style.alignItems = 'center';
+    } else {
+      // In portrait, controls at the bottom with more space
+      mobileControlsContainer.style.bottom = '0';
+      mobileControlsContainer.style.left = '0';
+      mobileControlsContainer.style.width = '100%';
+      mobileControlsContainer.style.height = '250px'; // More height for controls
+      mobileControlsContainer.style.display = 'flex';
+      mobileControlsContainer.style.justifyContent = 'space-between';
+      mobileControlsContainer.style.alignItems = 'flex-end';
+      mobileControlsContainer.style.paddingBottom = '10px'; // Add some padding at bottom
+    }
+    
     mobileControlsContainer.style.pointerEvents = 'auto';
-    mobileControlsContainer.style.display = 'flex';
-    mobileControlsContainer.style.justifyContent = 'space-between';
-    mobileControlsContainer.style.alignItems = 'flex-end';
     this.uiContainer.appendChild(mobileControlsContainer);
     
     // Create virtual joystick
@@ -1149,11 +1237,10 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
     joystickContainer.style.position = 'relative';
     joystickContainer.style.width = '150px';
     joystickContainer.style.height = '150px';
-    joystickContainer.style.margin = '10px';
+    joystickContainer.style.margin = isLandscape ? '0 0 0 20px' : '10px 10px 20px 10px'; // More bottom margin in portrait
     joystickContainer.style.borderRadius = '50%';
     joystickContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
     joystickContainer.style.border = '2px solid rgba(255, 255, 255, 0.6)';
-    mobileControlsContainer.appendChild(joystickContainer);
     
     // Joystick handle
     const joystickHandle = document.createElement('div');
@@ -1169,13 +1256,22 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
     joystickHandle.style.pointerEvents = 'none';
     joystickContainer.appendChild(joystickHandle);
     
-    // Action buttons container
+    // Action buttons container with proper layout for orientation
     const actionButtonsContainer = document.createElement('div');
-    actionButtonsContainer.style.display = 'flex';
-    actionButtonsContainer.style.flexDirection = 'column';
-    actionButtonsContainer.style.margin = '10px 20px';
-    actionButtonsContainer.style.gap = '15px';
-    mobileControlsContainer.appendChild(actionButtonsContainer);
+    
+    if (isLandscape) {
+      // In landscape, buttons are horizontal on the right side
+      actionButtonsContainer.style.display = 'flex';
+      actionButtonsContainer.style.flexDirection = 'row';
+      actionButtonsContainer.style.margin = '0 20px 0 0'; // More right margin
+      actionButtonsContainer.style.gap = '20px';
+    } else {
+      // In portrait, buttons are vertical on the right side
+      actionButtonsContainer.style.display = 'flex';
+      actionButtonsContainer.style.flexDirection = 'column';
+      actionButtonsContainer.style.margin = '10px 20px';
+      actionButtonsContainer.style.gap = '15px';
+    }
     
     // Create action buttons
     const createActionButton = (id, text, color) => {
@@ -1203,9 +1299,28 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
     const attackButton = createActionButton('attack-button', 'ATTACK', 'rgba(180, 0, 0, 0.8)');
     const menuButton = createActionButton('menu-button', 'MENU', 'rgba(0, 0, 180, 0.8)');
     
-    actionButtonsContainer.appendChild(jumpButton);
-    actionButtonsContainer.appendChild(attackButton);
-    actionButtonsContainer.appendChild(menuButton);
+    // Add buttons in the right layout
+    if (isLandscape) {
+      // Different order in landscape - put attack in middle
+      actionButtonsContainer.appendChild(jumpButton);
+      actionButtonsContainer.appendChild(attackButton);
+      actionButtonsContainer.appendChild(menuButton);
+    } else {
+      actionButtonsContainer.appendChild(jumpButton);
+      actionButtonsContainer.appendChild(attackButton);
+      actionButtonsContainer.appendChild(menuButton);
+    }
+    
+    // Add containers to the main mobile controls container
+    if (isLandscape) {
+      // In landscape, joystick on left, buttons on right
+      mobileControlsContainer.appendChild(joystickContainer);
+      mobileControlsContainer.appendChild(actionButtonsContainer);
+    } else {
+      // In portrait mode, keep the original layout
+      mobileControlsContainer.appendChild(joystickContainer);
+      mobileControlsContainer.appendChild(actionButtonsContainer);
+    }
     
     this.mobileControlElements = {
       container: mobileControlsContainer,
@@ -1220,8 +1335,34 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
       }
     };
     
+    // Store landscape state for reference
+    this.isLandscape = isLandscape;
+    
     // Setup event listeners for mobile controls
     this.setupMobileControlEvents();
+    
+    // Add window resize listener to handle orientation changes
+    window.addEventListener('resize', this.handleOrientationChange.bind(this));
+  }
+  
+  // Handle orientation changes
+  handleOrientationChange() {
+    // Check if orientation actually changed
+    const currentLandscape = this.isLandscapeOrientation();
+    if (currentLandscape !== this.isLandscape) {
+      console.log("Orientation changed to", currentLandscape ? "landscape" : "portrait");
+      
+      // Remove old controls
+      if (this.mobileControlElements && this.mobileControlElements.container) {
+        this.uiContainer.removeChild(this.mobileControlElements.container);
+      }
+      
+      // Recreate controls with new orientation
+      this.createMobileControls();
+      
+      // Re-adjust the UI
+      this.adjustUIForMobile();
+    }
   }
   
   // Set up mobile touch controls
@@ -1374,8 +1515,11 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
     menuTitle.style.marginBottom = '20px';
     mobileMenuOverlay.appendChild(menuTitle);
     
+    // Check if we're in portrait mode (where these toggles matter most)
+    const isPortraitMode = !this.isLandscapeOrientation();
+    
     // Menu buttons
-    const menuButtons = [
+    let menuButtons = [
       { id: 'inventory-button', text: 'Inventory', action: () => {
         this.toggleInventory(window.gameManager.player.inventory, window.gameManager.player.gold);
         this.closeMobileMenu();
@@ -1399,8 +1543,52 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
         }
         this.closeMobileMenu();
       }},
-      { id: 'close-button', text: 'Close Menu', action: () => this.closeMobileMenu() }
     ];
+    
+    // Add toggle buttons for UI elements when in portrait mode
+    if (isPortraitMode) {
+      // Create array of additional UI toggle buttons
+      const toggleButtons = [
+        { 
+          id: 'chat-toggle', 
+          text: this.chatContainer && this.chatContainer.style.display !== 'none' ? 'Hide Chat' : 'Show Chat', 
+          action: () => {
+            this.toggleChatDisplay();
+            this.closeMobileMenu();
+          }
+        },
+        { 
+          id: 'combat-log-toggle', 
+          text: this.combatLog && this.combatLog.style.display !== 'none' ? 'Hide Combat Log' : 'Show Combat Log', 
+          action: () => {
+            this.toggleCombatLogDisplay();
+            this.closeMobileMenu();
+          }
+        },
+        { 
+          id: 'region-toggle', 
+          text: this.regionInfo && this.regionInfo.style.display !== 'none' ? 'Hide Region Info' : 'Show Region Info', 
+          action: () => {
+            this.toggleRegionInfoDisplay();
+            this.closeMobileMenu();
+          }
+        },
+        { 
+          id: 'status-toggle', 
+          text: this.statusContainer && this.statusContainer.style.display !== 'none' ? 'Hide Status Effects' : 'Show Status Effects', 
+          action: () => {
+            this.toggleStatusEffectsDisplay();
+            this.closeMobileMenu();
+          }
+        }
+      ];
+      
+      // Add the toggle buttons to the menu
+      menuButtons = [...menuButtons, ...toggleButtons];
+    }
+    
+    // Always add the close button at the end
+    menuButtons.push({ id: 'close-button', text: 'Close Menu', action: () => this.closeMobileMenu() });
     
     menuButtons.forEach(button => {
       const menuButton = document.createElement('div');
@@ -1433,6 +1621,71 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
     }
   }
   
+  // Toggle methods for mobile UI elements
+  toggleChatDisplay() {
+    if (this.chatContainer) {
+      if (this.chatContainer.style.display === 'none') {
+        this.chatContainer.style.display = 'block';
+        // If chat is shown but input is hidden, make sure input is visible too
+        if (this.chatInput && this.chatInput.style.display === 'none') {
+          this.openChat();
+        }
+      } else {
+        this.chatContainer.style.display = 'none';
+        // If chat input is open, close it
+        if (this.chatInput && this.chatInput.style.display === 'block') {
+          this.closeChat();
+        }
+      }
+    }
+  }
+  
+  toggleCombatLogDisplay() {
+    if (this.combatLog) {
+      if (this.combatLog.style.display === 'none') {
+        this.combatLog.style.display = 'block';
+        this.combatLog.style.zIndex = '1000';
+        // Position in center of screen when toggled on
+        this.combatLog.style.top = '50%';
+        this.combatLog.style.left = '50%';
+        this.combatLog.style.transform = 'translate(-50%, -50%)';
+        this.combatLog.style.width = '80%';
+        this.combatLog.style.maxHeight = '200px';
+      } else {
+        this.combatLog.style.display = 'none';
+      }
+    }
+  }
+  
+  toggleRegionInfoDisplay() {
+    if (this.regionInfo) {
+      this.regionInfo.style.display = this.regionInfo.style.display === 'none' ? 'block' : 'none';
+      
+      // If showing, make sure it has the right properties
+      if (this.regionInfo.style.display === 'block') {
+        this.regionInfo.style.zIndex = '1000';
+        // Ensure it's at a good position when manually toggled
+        this.regionInfo.style.top = '100px';
+        this.regionInfo.style.right = '10px';
+      }
+    }
+  }
+  
+  toggleStatusEffectsDisplay() {
+    if (this.statusContainer) {
+      this.statusContainer.style.display = 
+        this.statusContainer.style.display === 'none' ? 'flex' : 'none';
+      
+      // If showing, ensure good positioning
+      if (this.statusContainer.style.display === 'flex') {
+        this.statusContainer.style.zIndex = '1000';
+        this.statusContainer.style.top = '10px';
+        this.statusContainer.style.right = '10px';
+        this.statusContainer.style.left = 'auto';
+      }
+    }
+  }
+  
   // Get joystick direction for game manager
   getMobileControlDirection() {
     return this.mobileControls.active ? this.mobileControls.direction : null;
@@ -1440,54 +1693,161 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
   
   // Adjust UI layout for mobile devices
   adjustUIForMobile() {
-    // Move player stats to top middle
-    if (this.statsContainer) {
-      this.statsContainer.style.position = 'absolute';
-      this.statsContainer.style.top = '10px';
-      this.statsContainer.style.left = '50%';
-      this.statsContainer.style.transform = 'translateX(-50%)';
-      this.statsContainer.style.bottom = 'auto';
-      this.statsContainer.style.width = '180px';
-      this.statsContainer.style.padding = '8px';
-      this.statsContainer.style.zIndex = '100';
-      this.statsContainer.style.fontSize = '12px';
-    }
+    // Check if we're in landscape mode
+    const isLandscape = this.isLandscapeOrientation();
     
-    // Adjust combat log size and position
-    if (this.combatLog) {
-      this.combatLog.style.position = 'absolute';
-      this.combatLog.style.bottom = '220px'; // Above the mobile controls
-      this.combatLog.style.left = '50%';
-      this.combatLog.style.transform = 'translateX(-50%)';
-      this.combatLog.style.width = '70%';
-      this.combatLog.style.maxHeight = '100px';
-      this.combatLog.style.fontSize = '12px';
-      this.combatLog.style.padding = '8px';
-      this.combatLog.style.right = 'auto';
-    }
-    
-    // Make room for the minimap
-    if (this.minimapContainer) {
-      this.minimapContainer.style.top = '5px';
-      this.minimapContainer.style.left = '5px';
-      this.minimapContainer.style.width = '120px';
-      this.minimapContainer.style.height = '120px';
-    }
-    
-    // Adjust region info
-    if (this.regionInfo) {
-      this.regionInfo.style.position = 'absolute';
-      this.regionInfo.style.top = '5px';
-      this.regionInfo.style.right = '5px';
-      this.regionInfo.style.padding = '8px';
-      this.regionInfo.style.fontSize = '12px';
-      this.regionInfo.style.maxWidth = '150px';
-    }
-    
-    // Adjust status effects container
-    if (this.statusContainer) {
-      this.statusContainer.style.top = '130px';
-      this.statusContainer.style.left = '10px';
+    if (isLandscape) {
+      // LANDSCAPE MODE LAYOUT
+      
+      // Stats container - top center
+      if (this.statsContainer) {
+        this.statsContainer.style.position = 'absolute';
+        this.statsContainer.style.top = '5px';
+        this.statsContainer.style.left = '50%';
+        this.statsContainer.style.transform = 'translateX(-50%)';
+        this.statsContainer.style.width = '180px';
+        this.statsContainer.style.fontSize = '11px';
+        this.statsContainer.style.display = 'block';
+        this.statsContainer.style.padding = '8px';
+        this.statsContainer.style.zIndex = '100';
+        this.statsContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        this.statsContainer.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+        this.statsContainer.style.borderRadius = '5px';
+      }
+      
+      // Combat log - bottom center
+      if (this.combatLog) {
+        this.combatLog.style.position = 'absolute';
+        this.combatLog.style.display = 'block';
+        this.combatLog.style.bottom = '10px';
+        this.combatLog.style.left = '50%';
+        this.combatLog.style.transform = 'translateX(-50%)';
+        this.combatLog.style.width = '40%';
+        this.combatLog.style.maxHeight = '80px';
+        this.combatLog.style.fontSize = '12px';
+        this.combatLog.style.padding = '8px';
+        this.combatLog.style.right = 'auto';
+        this.isCombatLogVisible = true;
+      }
+      
+      // Minimap - top left
+      if (this.minimapContainer) {
+        this.minimapContainer.style.top = '5px';
+        this.minimapContainer.style.left = '5px';
+        this.minimapContainer.style.right = 'auto';
+        this.minimapContainer.style.transform = 'none';
+        this.minimapContainer.style.width = '100px';
+        this.minimapContainer.style.height = '100px';
+        this.minimapContainer.style.display = 'block';
+      }
+      
+      // Region info - top right
+      if (this.regionInfo) {
+        this.regionInfo.style.position = 'absolute';
+        this.regionInfo.style.top = '5px';
+        this.regionInfo.style.right = '5px';
+        this.regionInfo.style.left = 'auto';
+        this.regionInfo.style.padding = '6px';
+        this.regionInfo.style.fontSize = '11px';
+        this.regionInfo.style.maxWidth = '120px';
+        this.regionInfo.style.display = 'block';
+      }
+      
+      // Status effects - below minimap
+      if (this.statusContainer) {
+        this.statusContainer.style.top = '110px';
+        this.statusContainer.style.left = '10px';
+        this.statusContainer.style.display = 'flex';
+      }
+      
+      // Chat container
+      if (this.chatContainer) {
+        this.chatContainer.style.width = '40%';
+        this.chatContainer.style.bottom = '50%';
+        this.chatContainer.style.left = '50%';
+        this.chatContainer.style.transform = 'translate(-50%, 50%)';
+      }
+      
+    } else {
+      // PORTRAIT MODE LAYOUT - INTEGRATED DESIGN
+      
+      // Create a unified top bar for stats and minimap
+      const topBarHeight = '60px';
+      
+      // Minimap - small circle in top left corner
+      if (this.minimapContainer) {
+        this.minimapContainer.style.top = '5px';
+        this.minimapContainer.style.left = '5px';
+        this.minimapContainer.style.transform = 'none';
+        this.minimapContainer.style.right = 'auto';
+        this.minimapContainer.style.width = '50px';
+        this.minimapContainer.style.height = '50px';
+        this.minimapContainer.style.display = 'block';
+        this.minimapContainer.style.borderRadius = '25px'; // Make it circular
+        this.minimapContainer.style.overflow = 'hidden';
+        this.minimapContainer.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+      }
+      
+      // Stats container - integrated in top bar
+      if (this.statsContainer) {
+        this.statsContainer.style.position = 'absolute';
+        this.statsContainer.style.top = '5px';
+        this.statsContainer.style.left = '60px'; // Position next to minimap
+        this.statsContainer.style.right = '5px';
+        this.statsContainer.style.height = topBarHeight;
+        this.statsContainer.style.transform = 'none';
+        this.statsContainer.style.width = 'auto'; // Let it stretch to fill available space
+        this.statsContainer.style.fontSize = '11px';
+        this.statsContainer.style.display = 'block';
+        this.statsContainer.style.padding = '5px 8px'; // Less padding for compact display
+        this.statsContainer.style.zIndex = '100';
+        this.statsContainer.style.backgroundColor = 'rgba(0, 0, 0, 0.7)';
+        this.statsContainer.style.border = '1px solid rgba(255, 255, 255, 0.3)';
+        this.statsContainer.style.borderRadius = '5px';
+        
+        // Make layout more compact for portrait mode
+        if (this.healthBarContainer) {
+          this.healthBarContainer.style.marginBottom = '3px';
+        }
+        if (this.expBarContainer) {
+          this.expBarContainer.style.marginBottom = '3px';
+        }
+      }
+      
+      // Region info - integrated into the stats bar
+      if (this.regionInfo) {
+        this.regionInfo.style.display = 'none'; // Hide by default in portrait
+      }
+      
+      // Combat log - hidden by default
+      if (this.combatLog) {
+        this.combatLog.style.position = 'absolute';
+        this.combatLog.style.display = 'none';
+        this.combatLog.style.top = '70px'; // Position below the top bar
+        this.combatLog.style.left = '5px';
+        this.combatLog.style.right = '5px';
+        this.combatLog.style.width = 'auto';
+        this.combatLog.style.maxHeight = '200px';
+        this.combatLog.style.fontSize = '12px';
+        this.combatLog.style.padding = '8px';
+        this.combatLog.style.transform = 'none'; 
+        this.isCombatLogVisible = false;
+      }
+      
+      // Status effects - hidden by default
+      if (this.statusContainer) {
+        this.statusContainer.style.display = 'none';
+      }
+      
+      // Chat container
+      if (this.chatContainer) {
+        this.chatContainer.style.width = '90%';
+        this.chatContainer.style.maxHeight = '200px';
+        this.chatContainer.style.top = '20%';
+        this.chatContainer.style.left = '50%';
+        this.chatContainer.style.transform = 'translateX(-50%)';
+        this.chatContainer.style.display = 'none'; // Hide by default
+      }
     }
   }
   
@@ -1510,8 +1870,14 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
         this.regionInfo.innerHTML = infoText;
         this.regionInfo.style.opacity = '1';
         
-        // Add system chat message
-        this.addChatMessage('', `Entering ${region.name}`, 'system');
+        // Show region change notification instead of chat message
+        if (this.isLandscapeOrientation()) {
+          // In landscape, combat log will show
+          this.addCombatMessage(`Entering ${region.name}`);
+        } else {
+          // In portrait, show a notification
+          this.showFloatingNotification(`Entering ${region.name}`);
+        }
       } else {
         // Hide the region info when not in any region
         this.regionInfo.style.opacity = '0';
@@ -1525,7 +1891,7 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
   }
   
   // Method to add a combat message
-  addCombatMessage(message) {
+  addCombatMessage(message, type = 'normal') {
     const msgElement = document.createElement('div');
     msgElement.innerHTML = message;
     msgElement.style.marginBottom = '3px';
@@ -1534,8 +1900,69 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
     this.combatLog.appendChild(msgElement);
     this.combatLog.scrollTop = this.combatLog.scrollHeight;
     
-    // Also add to chat with combat type
-    this.addChatMessage('', message, 'combat');
+    // In portrait mode, don't show combat log automatically 
+    // (it will be accessible from menu instead)
+    const isPortrait = !this.isLandscapeOrientation();
+    if (!isPortrait) {
+      // Only in landscape, make sure combat log is visible
+      this.combatLog.style.display = 'block';
+    }
+    
+    // If it's an important error message in portrait mode, 
+    // temporarily show it then fade it out
+    if (isPortrait && type === 'error') {
+      // Create a floating notification instead
+      this.showFloatingNotification(message, 'error');
+    }
+  }
+  
+  // Show a temporary notification in mobile portrait mode
+  showFloatingNotification(message, type = 'normal') {
+    const notification = document.createElement('div');
+    notification.innerHTML = message;
+    notification.style.position = 'absolute';
+    notification.style.top = '75px'; // Just below the integrated top bar
+    notification.style.left = '50%';
+    notification.style.transform = 'translateX(-50%)';
+    notification.style.padding = '10px 15px';
+    notification.style.borderRadius = '5px';
+    notification.style.color = 'white';
+    notification.style.fontSize = '14px';
+    notification.style.zIndex = '2000';
+    notification.style.textAlign = 'center';
+    notification.style.maxWidth = '80%';
+    notification.style.boxShadow = '0 2px 10px rgba(0, 0, 0, 0.5)';
+    notification.style.border = '1px solid rgba(255, 255, 255, 0.2)';
+    
+    // Style based on type
+    if (type === 'error') {
+      notification.style.backgroundColor = 'rgba(255, 50, 50, 0.9)';
+    } else {
+      notification.style.backgroundColor = 'rgba(0, 0, 0, 0.8)';
+    }
+    
+    this.uiContainer.appendChild(notification);
+    
+    // Animation to fade in and slide down
+    notification.style.opacity = '0';
+    notification.style.transform = 'translateX(-50%) translateY(-20px)';
+    notification.style.transition = 'opacity 0.3s ease-out, transform 0.3s ease-out';
+    
+    setTimeout(() => {
+      notification.style.opacity = '1';
+      notification.style.transform = 'translateX(-50%) translateY(0)';
+      
+      // Fade out and remove after 3 seconds
+      setTimeout(() => {
+        notification.style.opacity = '0';
+        notification.style.transform = 'translateX(-50%) translateY(-20px)';
+        setTimeout(() => {
+          if (notification.parentNode) {
+            notification.parentNode.removeChild(notification);
+          }
+        }, 300);
+      }, 3000);
+    }, 10);
   }
   
   // Method to show level up notification
@@ -1812,10 +2239,13 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
       this.removeStatusEffect(buffId);
     }
     
-    // Clear mobile controls
+    // Clear mobile controls and event listeners
     if (this.isMobile) {
       document.removeEventListener('touchmove', this.touchMoveHandler);
       document.removeEventListener('touchend', this.touchEndHandler);
+      
+      // Remove the orientation change listener
+      window.removeEventListener('resize', this.handleOrientationChange);
     }
     
     // Remove global reference
