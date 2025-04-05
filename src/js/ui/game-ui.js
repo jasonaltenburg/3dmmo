@@ -2,6 +2,16 @@ import * as THREE from 'three';
 
 export class GameUI {
   constructor() {
+    // Mobile controls state
+    this.isMobile = this.detectMobile();
+    console.log('Constructor: this.isMobile is now:', this.isMobile);
+    this.mobileControls = {
+      active: false,
+      joystickPosition: { x: 0, y: 0 },
+      joystickTouchId: null,
+      direction: new THREE.Vector3()
+    };
+    // Create UI
     this.createUI();
     this.createChatSystem();
     this.createMinimap();
@@ -23,19 +33,12 @@ export class GameUI {
     // Store active effects
     this.activeEffects = {};
     
-    // Mobile controls state
-    this.isMobile = this.detectMobile();
-    this.mobileControls = {
-      active: false,
-      joystickPosition: { x: 0, y: 0 },
-      joystickTouchId: null,
-      direction: new THREE.Vector3()
-    };
   }
 
   createUI() {
     console.log("Creating UI dynamically...");
-
+    console.log('createUI: this context:', this); // <-- Add this
+    console.log('createUI: this.isMobile is:', this.isMobile);
     this.uiContainer = document.createElement('div');
     this.uiContainer.id = 'game-ui';
     this.uiContainer.style.position = 'absolute';
@@ -49,6 +52,7 @@ export class GameUI {
     
     // Create mobile controls if on a mobile device
     if (this.isMobile) {
+      document.body.classList.add('mobile-device');
       this.createMobileControls();
     }
 
@@ -1114,14 +1118,18 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
   
   // Mobile device detection
   detectMobile() {
-    return (
-      /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
-      (window.innerWidth <= 800 && window.innerHeight <= 900)
-    );
+    const mobileCheck = /Android|webOS|iPhone|iPad|iPod|BlackBerry|IEMobile|Opera Mini/i.test(navigator.userAgent) ||
+      (window.innerWidth <= 800 && window.innerHeight <= 900);
+    console.log('detectMobile result:', mobileCheck); // <-- Add this log
+    return mobileCheck;
   }
   
   // Create mobile controls UI
   createMobileControls() {
+    // Adjust UI layout for mobile
+    this.adjustUIForMobile();
+    
+    // Create mobile controls container
     const mobileControlsContainer = document.createElement('div');
     mobileControlsContainer.id = 'mobile-controls';
     mobileControlsContainer.style.position = 'absolute';
@@ -1274,7 +1282,9 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
     // Jump button
     jumpButton.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyJ' }));
+      if (window.gameManager && window.gameManager.playerJump) {
+        window.gameManager.playerJump();
+      }
       jumpButton.style.transform = 'scale(0.9)';
     });
     
@@ -1285,7 +1295,9 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
     // Attack button
     attackButton.addEventListener('touchstart', (e) => {
       e.preventDefault();
-      document.dispatchEvent(new KeyboardEvent('keydown', { code: 'Space' }));
+      if (window.gameManager && window.gameManager.playerAttack) {
+        window.gameManager.playerAttack();
+      }
       attackButton.style.transform = 'scale(0.9)';
     });
     
@@ -1332,7 +1344,8 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
     this.mobileControls.joystickPosition = { x: normalizedX, y: normalizedY };
     
     // Set direction for movement (Z is forward/back, X is left/right)
-    this.mobileControls.direction.z = normalizedY;
+    // Reverse Y axis for more intuitive controls (up = forward, down = backward)
+    this.mobileControls.direction.z = -normalizedY; // Negative to reverse direction
     this.mobileControls.direction.x = normalizedX;
   }
   
@@ -1381,7 +1394,9 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
         }
       }},
       { id: 'camera-button', text: 'Toggle Camera', action: () => {
-        document.dispatchEvent(new KeyboardEvent('keydown', { code: 'KeyC' }));
+        if (window.gameManager && window.gameManager.toggleCameraMode) {
+          window.gameManager.toggleCameraMode();
+        }
         this.closeMobileMenu();
       }},
       { id: 'close-button', text: 'Close Menu', action: () => this.closeMobileMenu() }
@@ -1421,6 +1436,59 @@ switchInventoryTab(tabName) { // Receives 'equipment' or 'invconsumables'
   // Get joystick direction for game manager
   getMobileControlDirection() {
     return this.mobileControls.active ? this.mobileControls.direction : null;
+  }
+  
+  // Adjust UI layout for mobile devices
+  adjustUIForMobile() {
+    // Move player stats to top middle
+    if (this.statsContainer) {
+      this.statsContainer.style.position = 'absolute';
+      this.statsContainer.style.top = '10px';
+      this.statsContainer.style.left = '50%';
+      this.statsContainer.style.transform = 'translateX(-50%)';
+      this.statsContainer.style.bottom = 'auto';
+      this.statsContainer.style.width = '180px';
+      this.statsContainer.style.padding = '8px';
+      this.statsContainer.style.zIndex = '100';
+      this.statsContainer.style.fontSize = '12px';
+    }
+    
+    // Adjust combat log size and position
+    if (this.combatLog) {
+      this.combatLog.style.position = 'absolute';
+      this.combatLog.style.bottom = '220px'; // Above the mobile controls
+      this.combatLog.style.left = '50%';
+      this.combatLog.style.transform = 'translateX(-50%)';
+      this.combatLog.style.width = '70%';
+      this.combatLog.style.maxHeight = '100px';
+      this.combatLog.style.fontSize = '12px';
+      this.combatLog.style.padding = '8px';
+      this.combatLog.style.right = 'auto';
+    }
+    
+    // Make room for the minimap
+    if (this.minimapContainer) {
+      this.minimapContainer.style.top = '5px';
+      this.minimapContainer.style.left = '5px';
+      this.minimapContainer.style.width = '120px';
+      this.minimapContainer.style.height = '120px';
+    }
+    
+    // Adjust region info
+    if (this.regionInfo) {
+      this.regionInfo.style.position = 'absolute';
+      this.regionInfo.style.top = '5px';
+      this.regionInfo.style.right = '5px';
+      this.regionInfo.style.padding = '8px';
+      this.regionInfo.style.fontSize = '12px';
+      this.regionInfo.style.maxWidth = '150px';
+    }
+    
+    // Adjust status effects container
+    if (this.statusContainer) {
+      this.statusContainer.style.top = '130px';
+      this.statusContainer.style.left = '10px';
+    }
   }
   
   // Method to show region info
