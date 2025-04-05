@@ -6,6 +6,9 @@ export class Player {
     this.socket = socket;
     this.id = id;
     
+    // Player name (default to ID until set)
+    this.displayName = id;
+    
     // Player stats
     this.level = 1;
     this.maxHealth = 100;
@@ -160,6 +163,24 @@ export class Player {
     this.healthBarContainer = healthBarContainer;
     this.healthBar = healthBar;
     
+    // Name tag
+    const nameTag = document.createElement('div');
+    nameTag.className = 'player-name';
+    nameTag.textContent = this.displayName;
+    nameTag.style.position = 'absolute';
+    nameTag.style.width = '100px';
+    nameTag.style.textAlign = 'center';
+    nameTag.style.color = 'white';
+    nameTag.style.backgroundColor = 'rgba(0, 0, 0, 0.5)';
+    nameTag.style.padding = '2px 5px';
+    nameTag.style.borderRadius = '3px';
+    nameTag.style.fontSize = '12px';
+    nameTag.style.fontFamily = 'Arial, sans-serif';
+    nameTag.style.pointerEvents = 'none';
+    document.body.appendChild(nameTag);
+    
+    this.nameTag = nameTag;
+    
     return group;
   }
   
@@ -184,6 +205,16 @@ export class Player {
         this.leftArm.rotation.x = 0;
         this.rightArm.rotation.x = 0;
       }
+    }
+    
+    // Update name tag position to follow player
+    const screenPosition = this.getScreenPosition(camera);
+    if (screenPosition && this.nameTag) {
+      this.nameTag.style.display = 'block';
+      this.nameTag.style.left = (screenPosition.x - 50) + 'px';
+      this.nameTag.style.top = (screenPosition.y - 60) + 'px'; // Position above health bar
+    } else if (this.nameTag) {
+      this.nameTag.style.display = 'none';
     }
     
     // Handle jumping
@@ -246,7 +277,6 @@ export class Player {
     }
     
     // Update health bar position to follow player
-    const screenPosition = this.getScreenPosition(camera);
     if (screenPosition) {
       this.healthBarContainer.style.display = 'block';
       this.healthBarContainer.style.left = (screenPosition.x - 25) + 'px';
@@ -572,6 +602,10 @@ export class Player {
       this.healthBarContainer.parentNode.removeChild(this.healthBarContainer);
     }
     
+    if (this.nameTag && this.nameTag.parentNode) {
+      this.nameTag.parentNode.removeChild(this.nameTag);
+    }
+    
     // Clear all buff timeouts
     for (const buffId in this.buffs) {
       this.removeBuff(buffId);
@@ -586,6 +620,14 @@ export class Player {
     // Clear stored materials to prevent memory leaks
     if (this.originalMaterials) {
       this.originalMaterials = null;
+    }
+  }
+  
+  // Set player display name
+  setDisplayName(name) {
+    this.displayName = name;
+    if (this.nameTag) {
+      this.nameTag.textContent = name;
     }
   }
 }

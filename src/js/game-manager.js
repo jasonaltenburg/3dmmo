@@ -260,7 +260,11 @@ export class GameManager {
       if (message.startsWith('/')) {
         this.processChatCommand(message);
       } else {
-        this.socket.emit('chat', { message });
+        // Include display name with chat message
+        this.socket.emit('chat', { 
+          message,
+          displayName: this.player ? this.player.displayName : this.socket.id
+        });
       }
     });
     
@@ -417,20 +421,25 @@ export class GameManager {
     
     this.socket.on('newPlayer', (playerData) => {
       this.addOtherPlayer(playerData);
-      this.ui.addChatMessage('', `${playerData.id} has joined the game`, 'system');
+      const displayName = playerData.displayName || playerData.id;
+      this.ui.addChatMessage('', `${displayName} has joined the game`, 'system');
     });
     
     this.socket.on('playerMoved', (playerData) => {
       this.updateOtherPlayer(playerData);
     });
     
-    this.socket.on('playerDisconnected', (playerId) => {
+    this.socket.on('playerDisconnected', (playerData) => {
+      const playerId = typeof playerData === 'string' ? playerData : playerData.id;
+      const displayName = playerData.displayName || this.otherPlayers[playerId]?.nameTag?.textContent || playerId;
       this.removeOtherPlayer(playerId);
-      this.ui.addChatMessage('', `${playerId} has left the game`, 'system');
+      this.ui.addChatMessage('', `${displayName} has left the game`, 'system');
     });
     
     this.socket.on('chat', (data) => {
-      this.ui.addChatMessage(data.id, data.message);
+      // Use displayName if available, otherwise fall back to id
+      const sender = data.displayName || data.id;
+      this.ui.addChatMessage(sender, data.message);
     });
     
     this.socket.on('systemMessage', (message) => {
@@ -462,6 +471,9 @@ export class GameManager {
     this.controls.target.y = this.player.model.position.y + 1;
     this.controls.update();
 
+    // Prompt player for name
+    this.promptForPlayerName();
+
     // Wait for UI to be ready before updating stats
     setTimeout(() => {
         this.debugLog("GameManager: Updating UI with player stats...");
@@ -471,6 +483,140 @@ export class GameManager {
     // Ensure active region is set
     setTimeout(() => this.checkRegion(), 200);
 }
+
+  promptForPlayerName() {
+    // Create a modal dialog for player name
+    const modal = document.createElement('div');
+    modal.style.position = 'fixed';
+    modal.style.left = '0';
+    modal.style.top = '0';
+    modal.style.width = '100%';
+    modal.style.height = '100%';
+    modal.style.backgroundColor = 'rgba(0,0,0,0.7)';
+    modal.style.display = 'flex';
+    modal.style.justifyContent = 'center';
+    modal.style.alignItems = 'center';
+    modal.style.zIndex = '1000';
+    
+    const box = document.createElement('div');
+    box.style.width = '300px';
+    box.style.backgroundColor = '#222';
+    box.style.padding = '20px';
+    box.style.borderRadius = '5px';
+    box.style.textAlign = 'center';
+    box.style.color = 'white';
+    
+    const title = document.createElement('h3');
+    title.textContent = 'Enter Your Character Name';
+    title.style.margin = '0 0 20px 0';
+    
+    const input = document.createElement('input');
+    input.type = 'text';
+    input.placeholder = 'Enter your name...';
+    input.style.width = '100%';
+    input.style.padding = '8px';
+    input.style.marginBottom = '15px';
+    input.style.backgroundColor = '#333';
+    input.style.border = '1px solid #444';
+    input.style.color = 'white';
+    input.style.borderRadius = '3px';
+    
+    const submitBtn = document.createElement('button');
+    submitBtn.textContent = 'Submit';
+    submitBtn.style.padding = '8px 15px';
+    submitBtn.style.backgroundColor = '#4CAF50';
+    submitBtn.style.border = 'none';
+    submitBtn.style.borderRadius = '3px';
+    submitBtn.style.color = 'white';
+    submitBtn.style.marginRight = '10px';
+    submitBtn.style.cursor = 'pointer';
+    
+    const cancelBtn = document.createElement('button');
+    cancelBtn.textContent = 'Random Name';
+    cancelBtn.style.padding = '8px 15px';
+    cancelBtn.style.backgroundColor = '#f44336';
+    cancelBtn.style.border = 'none';
+    cancelBtn.style.borderRadius = '3px';
+    cancelBtn.style.color = 'white';
+    cancelBtn.style.cursor = 'pointer';
+    
+    box.appendChild(title);
+    box.appendChild(input);
+    box.appendChild(submitBtn);
+    box.appendChild(cancelBtn);
+    modal.appendChild(box);
+    
+    document.body.appendChild(modal);
+    
+    // Focus the input
+    setTimeout(() => input.focus(), 0);
+    
+    // Generate random banana-themed name
+    const getRandomBananaName = () => {
+      const bananaNames = ['Bananiel', 'Banandrew', 'Bananthony'];
+      const randomIndex = Math.floor(Math.random() * bananaNames.length);
+      return bananaNames[randomIndex];
+    };
+    
+    // Submit handler
+    const handleSubmit = () => {
+      const name = input.value.trim();
+      let finalName;
+      
+      if (name) {
+        finalName = name;
+      } else {
+        // If no name entered, generate random banana name
+        finalName = getRandomBananaName();
+      }
+      
+      // Set the player's display name
+      this.player.setDisplayName(finalName);
+      
+      // Send a player movement update to share the new name
+      this.socket.emit('playerMovement', {
+        x: this.player.model.position.x,
+        y: this.player.model.position.y,
+        z: this.player.model.position.z,
+        rotationY: this.player.model.rotation.y,
+        displayName: finalName
+      });
+      
+      // Announce player joining with their chosen name
+      this.ui.addChatMessage('', `${finalName} has joined the game`, 'system');
+      
+      document.body.removeChild(modal);
+    };
+    
+    // Event listeners
+    submitBtn.addEventListener('click', handleSubmit);
+    cancelBtn.addEventListener('click', () => {
+      // Generate random banana name when "Random Name" is clicked
+      const randomName = getRandomBananaName();
+      
+      // Set the player's display name
+      this.player.setDisplayName(randomName);
+      
+      // Send a player movement update to share the new name
+      this.socket.emit('playerMovement', {
+        x: this.player.model.position.x,
+        y: this.player.model.position.y,
+        z: this.player.model.position.z,
+        rotationY: this.player.model.rotation.y,
+        displayName: randomName
+      });
+      
+      // Announce player joining with their chosen name
+      this.ui.addChatMessage('', `${randomName} has joined the game`, 'system');
+      
+      document.body.removeChild(modal);
+    });
+    
+    // Allow enter key to submit
+    input.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') handleSubmit();
+    });
+  }
 
 
   
@@ -483,6 +629,14 @@ export class GameManager {
                 this.player = new Player(this.scene, this.socket, this.socket.id);
                 this.player.model.position.set(players[id].x, players[id].y, players[id].z);
                 this.player.model.rotation.y = players[id].rotationY;
+                
+                // Set display name if available
+                if (players[id].displayName) {
+                    this.player.setDisplayName(players[id].displayName);
+                } else {
+                    // If no display name, prompt for one
+                    this.promptForPlayerName();
+                }
             }
         } else {
             this.addOtherPlayer(players[id]);
@@ -525,7 +679,8 @@ export class GameManager {
     // Nametag
     const nameTag = document.createElement('div');
     nameTag.className = 'player-name';
-    nameTag.textContent = playerData.id;
+    // Use displayName if available, otherwise fall back to id
+    nameTag.textContent = playerData.displayName || playerData.id;
     nameTag.style.position = 'absolute';
     nameTag.style.width = '100px';
     nameTag.style.textAlign = 'center';
@@ -565,6 +720,11 @@ export class GameManager {
       
       // Update rotation
       otherPlayer.model.rotation.y = playerData.rotationY;
+      
+      // Update display name if changed
+      if (playerData.displayName && otherPlayer.nameTag && otherPlayer.nameTag.textContent !== playerData.displayName) {
+        otherPlayer.nameTag.textContent = playerData.displayName;
+      }
     }
   }
   
@@ -1100,10 +1260,11 @@ export class GameManager {
       case '/players':
         const playerCount = Object.keys(this.otherPlayers).length + 1; // +1 for self
         this.ui.addChatMessage('', `Players online: ${playerCount}`, 'system');
-        this.ui.addChatMessage('', `You: ${this.socket.id}`, 'system');
+        this.ui.addChatMessage('', `You: ${this.player.displayName}`, 'system');
         
         for (const id in this.otherPlayers) {
-          this.ui.addChatMessage('', `- ${id}`, 'system');
+          const displayName = this.otherPlayers[id].nameTag?.textContent || id;
+          this.ui.addChatMessage('', `- ${displayName}`, 'system');
         }
         break;
       
@@ -1271,7 +1432,8 @@ export class GameManager {
           x: this.player.model.position.x,
           y: this.player.model.position.y,
           z: this.player.model.position.z,
-          rotationY: this.player.model.rotation.y
+          rotationY: this.player.model.rotation.y,
+          displayName: this.player.displayName
         });
         
         // Check if we entered a new region

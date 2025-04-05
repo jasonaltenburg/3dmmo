@@ -27,6 +27,7 @@ io.on('connection', (socket) => {
   // Initialize player
   players[socket.id] = {
     id: socket.id,
+    displayName: null, // Will be set when player provides name
     x: Math.random() * 4 - 2, // Spawn near town center
     y: 0,
     z: Math.random() * 4 - 2,
@@ -45,8 +46,7 @@ io.on('connection', (socket) => {
   // Broadcast the new player to all other players
   socket.broadcast.emit('newPlayer', players[socket.id]);
   
-  // Send system message about new player
-  io.emit('systemMessage', `${socket.id} has joined the game.`);
+  // We'll wait for the player to set their display name before announcing their arrival
   
   // Handle player movement
   socket.on('playerMovement', (movementData) => {
@@ -57,15 +57,24 @@ io.on('connection', (socket) => {
     players[socket.id].z = movementData.z;
     players[socket.id].rotationY = movementData.rotationY;
     
+    // Update display name if provided and changed
+    if (movementData.displayName && players[socket.id].displayName !== movementData.displayName) {
+      players[socket.id].displayName = movementData.displayName;
+    }
+    
     // Broadcast player's movement to all other players
     socket.broadcast.emit('playerMoved', players[socket.id]);
   });
   
   // Handle chat messages
   socket.on('chat', (data) => {
-    // Create the chat message with sender ID
+    // Get display name from data or player object
+    const displayName = data.displayName || players[socket.id].displayName || socket.id;
+    
+    // Create the chat message with sender ID and display name
     const chatMessage = {
       id: socket.id,
+      displayName: displayName,
       message: data.message
     };
     
@@ -84,9 +93,16 @@ io.on('connection', (socket) => {
     console.log('User disconnected:', socket.id);
     
     if (players[socket.id]) {
+      const displayName = players[socket.id].displayName || socket.id;
+      
+      // First send the player info, then delete the player
+      io.emit('playerDisconnected', {
+        id: socket.id,
+        displayName: displayName
+      });
+      
       delete players[socket.id];
-      io.emit('playerDisconnected', socket.id);
-      io.emit('systemMessage', `${socket.id} has left the game.`);
+      io.emit('systemMessage', `${displayName} has left the game.`);
     }
   });
 });
