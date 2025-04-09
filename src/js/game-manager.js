@@ -184,6 +184,12 @@ export class GameManager {
       
       // Block all game inputs if name dialog is active
       if (this.nameDialogActive) {
+        // Only allow Enter key for name submission in dialog
+        if (e.code === 'Enter') {
+          return;
+        }
+        // Block all other keys
+        e.stopPropagation();
         return;
       }
       
@@ -192,10 +198,7 @@ export class GameManager {
         this.debugLog('Key state updated:', e.code, this.keys[e.code]);
       }
       
-      // Block all special commands if name dialog is active
-      if (this.nameDialogActive) {
-        return;
-      }
+      // Special commands are already blocked by the check above if nameDialogActive is true
       
       // Attack on space
       if (e.code === 'Space' && !this.chatActive) {
@@ -407,7 +410,10 @@ export class GameManager {
 
     // Toggle debug mode with Ctrl+Shift+` (Backquote)
     window.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.code === 'Backquote' && !this.nameDialogActive) {
+      // Check if name dialog is active first
+      if (this.nameDialogActive) return;
+      
+      if (e.ctrlKey && e.shiftKey && e.code === 'Backquote') {
         this.debugEnabled = !this.debugEnabled;
         this.debugLog(`Debug mode ${this.debugEnabled ? 'enabled' : 'disabled'}`);
       }
@@ -415,14 +421,20 @@ export class GameManager {
     
     // God mode activation with Ctrl+Shift+M
     window.addEventListener('keydown', (e) => {
-      if (e.ctrlKey && e.shiftKey && e.code === 'KeyM' && !this.nameDialogActive) {
+      // Check if name dialog is active first
+      if (this.nameDialogActive) return;
+      
+      if (e.ctrlKey && e.shiftKey && e.code === 'KeyM') {
         this.promptGodModePassword();
       }
     });
     
     // God mode laser attack with Z
     window.addEventListener('keydown', (e) => {
-      if (e.code === 'KeyZ' && this.godMode && !this.chatActive && !this.nameDialogActive) {
+      // Check if name dialog is active first
+      if (this.nameDialogActive) return;
+      
+      if (e.code === 'KeyZ' && this.godMode && !this.chatActive) {
         this.fireLasers();
       }
     });

@@ -227,6 +227,11 @@ export class GameUI {
     
     // Toggle chat with T key
     window.addEventListener('keydown', (e) => {
+      // Check if name dialog is active - don't process chat keys if it is
+      if (window.gameManager && window.gameManager.nameDialogActive) {
+        return;
+      }
+
       if (e.key === 't' && this.chatInput.style.display === 'none') {
         e.preventDefault();
         this.openChat();

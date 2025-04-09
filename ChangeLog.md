@@ -1,4 +1,6 @@
 ## Changelog
+**2025-04-08 v1.1.4**
+- Updated issue on name input dialog
 
 **2025-04-04 v1.1.3**
 - Updated mobile controls
