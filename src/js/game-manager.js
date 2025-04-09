@@ -553,6 +553,7 @@ export class GameManager {
     input.style.border = '1px solid #444';
     input.style.color = 'white';
     input.style.borderRadius = '3px';
+    input.style.fontSize = '16px'; // Prevent iOS zoom
     
     const submitBtn = document.createElement('button');
     submitBtn.textContent = 'Submit';
@@ -903,6 +904,7 @@ export class GameManager {
     input.style.border = '1px solid #444';
     input.style.color = 'white';
     input.style.borderRadius = '3px';
+    input.style.fontSize = '16px'; // Prevent iOS zoom
     
     const submitBtn = document.createElement('button');
     submitBtn.textContent = 'Submit';

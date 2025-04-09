@@ -2,13 +2,22 @@
 <html lang="en">
 <head>
   <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
   <title>3D MMO RPG</title>
   <style>
     body {
       margin: 0;
       overflow: hidden;
       font-family: Arial, sans-serif;
+    }
+    /* Prevent zoom on iOS inputs */
+    input[type="text"], 
+    input[type="password"],
+    input[type="email"],
+    input[type="number"],
+    textarea,
+    select {
+      font-size: 16px; /* iOS won't zoom if font size ≥ 16px */
     }
     #loading {
       position: fixed;

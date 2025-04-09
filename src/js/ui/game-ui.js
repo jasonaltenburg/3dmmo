@@ -205,6 +205,7 @@ export class GameUI {
     this.chatInput.style.borderRadius = '3px';
     this.chatInput.style.backgroundColor = 'rgba(255, 255, 255, 0.2)';
     this.chatInput.style.color = 'white';
+    this.chatInput.style.fontSize = '16px'; // Prevent iOS zoom
     this.chatInput.style.display = 'none';
     this.chatInput.style.pointerEvents = 'auto';
     this.chatInputContainer.appendChild(this.chatInput);

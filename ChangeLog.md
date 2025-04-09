@@ -1,4 +1,7 @@
 ## Changelog
+**2025-04-08 v1.1.5**
+- Updated issue on iOS zoom on name input
+
 **2025-04-08 v1.1.4**
 - Updated issue on name input dialog
 
