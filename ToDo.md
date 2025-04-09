@@ -17,6 +17,7 @@
   - Make MTX Equipment
 
 3. **Horse Armor**
+  - Horse Armor is very important
 
 4. **Bug squashing**
   - mobile controls don't work in landscape orientation
